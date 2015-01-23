@@ -2,7 +2,7 @@
  * File:   main.cpp
  * Author: Matthew
  *
- * Simple example of using the GPU to for reverse mode
+ * Simple example of using the GPU for reverse mode
  * Automatic differentiation.
  * 
  * Created on January 21, 2015, 9:01 AM
