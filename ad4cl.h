@@ -1,6 +1,6 @@
 /* 
  * File:   adcl.h
- * Author: Matthew
+ * Author: Matthew Supernaw
  *
  * Created on January 22, 2015, 3:38 PM
  * The c version of the API.
@@ -702,6 +702,28 @@ extern "C" {
             gs->gradient_stack[current] = e;
         }
         return ret;
+    }
+
+
+    void gradient(struct gradient_structure& gs, double* gradient, int& length) {
+   
+        if (gs.recording == 1) {
+            gradient = malloc(sizeof (double)*gs.current_variable_id + 1);
+            length = gs.current_variable_id + 1;
+            gradient[gs.gradient_stack[gs.stack_current - 1].id] = 1.0;
+
+            for (int j = gs.stack_current - 1; j >= 0; j--) {
+                int id = gs.gradient_stack[j].id;
+                double w = gradient[id];
+                gradient[id] = 0.0;
+
+                if (w != 0.0) {
+                    for (int i = 0; i < gs.gradient_stack[j].size; i++) {
+                        gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
+                    }
+                }
+            }
+        }
     }
 
 
