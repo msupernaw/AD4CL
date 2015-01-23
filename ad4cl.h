@@ -3,7 +3,7 @@
  * Author: Matthew Supernaw
  *
  * Created on January 22, 2015, 3:38 PM
- * The c version of the API.
+ * The native version of the API.
  */
 
 #ifndef ADCL_H
