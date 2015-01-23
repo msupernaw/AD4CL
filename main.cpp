@@ -91,29 +91,6 @@ inline std::ostream& operator<<(std::ostream& out, const cl::Device& device) {
     return out;
 }
 
-std::vector<double> Gradient(struct gradient_structure& gs) {
-
-
-    std::vector<double> gradient;
-    if (gs.recording == 1) {
-        gradient.resize(gs.current_variable_id + 1);
-        gradient[gs.gradient_stack[gs.stack_current - 1].id] = 1.0;
-
-        for (int j = gs.stack_current - 1; j >= 0; j--) {
-            int id = gs.gradient_stack[j].id;
-            double w = gradient[id];
-            gradient[id] = 0.0;
-
-            if (w != 0.0) {
-                for (int i = 0; i < gs.gradient_stack[j].size; i++) {
-                    gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
-                }
-            }
-        }
-    }
-    return gradient;
-}
-
 
 //simple kernel to compute the sum of ((a*x[i] + b)-y[i])^2
 std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs,\n"\
