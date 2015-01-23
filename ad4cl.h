@@ -705,11 +705,17 @@ extern "C" {
     }
 
 
-    void gradient(struct gradient_structure& gs, double* gradient, int& length) {
-   
+    double* compute_gradient(struct gradient_structure& gs, int& size) {
+
+
+        double* gradient = NULL;
         if (gs.recording == 1) {
-            gradient = malloc(sizeof (double)*gs.current_variable_id + 1);
-            length = gs.current_variable_id + 1;
+            gradient = malloc(sizeof (double)*(gs.current_variable_id + 1));
+            size = gs.current_variable_id + 1;
+            for (int i = 0; i < size; i++) {
+                gradient[i] = 0;
+            }
+
             gradient[gs.gradient_stack[gs.stack_current - 1].id] = 1.0;
 
             for (int j = gs.stack_current - 1; j >= 0; j--) {
@@ -724,8 +730,8 @@ extern "C" {
                 }
             }
         }
+        return gradient;
     }
-
 
 #ifdef	__cplusplus
 }
