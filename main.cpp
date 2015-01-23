@@ -220,7 +220,7 @@ int main(int argc, char** argv) {
     struct entry* entries = new entry[STACK_SIZE];
     gs.gradient_stack = entries;
 
-    //create out variables
+    //create our variables
     variable a = {.value = 4.19, .id = gs.current_variable_id++};
     variable b = {.value = 3.21, .id = gs.current_variable_id++};
     variable out = {.value = 0.0, .id = gs.current_variable_id++};
@@ -337,6 +337,7 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
+    //clean up 
     delete[] x;
     delete[] y;
     delete[] entries;
