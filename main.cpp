@@ -91,6 +91,29 @@ inline std::ostream& operator<<(std::ostream& out, const cl::Device& device) {
     return out;
 }
 
+std::vector<double> Gradient(struct gradient_structure& gs) {
+
+
+    std::vector<double> gradient;
+    if (gs.recording == 1) {
+        gradient.resize(gs.current_variable_id + 1);
+        gradient[gs.gradient_stack[gs.stack_current - 1].id] = 1.0;
+
+        for (int j = gs.stack_current - 1; j >= 0; j--) {
+            int id = gs.gradient_stack[j].id;
+            double w = gradient[id];
+            gradient[id] = 0.0;
+
+            if (w != 0.0) {
+                for (int i = 0; i < gs.gradient_stack[j].size; i++) {
+                    gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
+                }
+            }
+        }
+    }
+    return gradient;
+}
+
 
 //simple kernel to compute the sum of ((a*x[i] + b)-y[i])^2
 std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs,\n"\
@@ -108,7 +131,6 @@ std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs
    " }\n"\
   "}\n";
 
-
 /**
  * Simple example of running a ad4cl kernel.
  * 
@@ -120,22 +142,23 @@ std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs
 int main(int argc, char** argv) {
 
     std::string source_code;
-    //Read the ad4cl api.
-   
-        std::string line;
-        std::ifstream in;
-        in.open("ad.cl");
-
-        std::stringstream ss;
-
-        while (in.good()) {
-            std::getline(in, line);
-            ss << line << "\n";
-        }
-        //append with our kernel
-        ss << my_kernel;
-        source_code = ss.str();
     
+    //Read the ad4cl api.
+    std::string line;
+    std::ifstream in;
+    in.open("ad.cl");
+
+    std::stringstream ss;
+
+    while (in.good()) {
+        std::getline(in, line);
+        ss << line << "\n";
+    }
+    
+    //append with our kernel
+    ss << my_kernel;
+    source_code = ss.str();
+
 
 
 
@@ -184,7 +207,7 @@ int main(int argc, char** argv) {
 
         if (error != CL_SUCCESS) {
             std::cout << "---> " << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]) << "\n";
-                    exit(0);
+            exit(0);
         }
 
 
@@ -213,20 +236,22 @@ int main(int argc, char** argv) {
         y[i] = aa * x[i] + bb;
     }
 
+    //create a gradient structure
+    struct gradient_structure gs;
+    gs.current_variable_id = 0;
+    gs.stack_current = 0;
+    gs.recording = 1;
+    struct entry* entries = new entry[STACK_SIZE];
+    gs.gradient_stack = entries;
+
+    //create out variables
+    variable a = {.value = 4.19, .id = gs.current_variable_id++};
+    variable b = {.value = 3.21, .id = gs.current_variable_id++};
+    variable out = {.value = 0.0, .id = gs.current_variable_id++};
+
 
     try {
-        //create a gradient structure
-        struct gradient_structure gs;
-        gs.current_variable_id = 0;
-        gs.stack_current = 0;
-        gs.recording = 1;
-        struct entry* entries = new entry[STACK_SIZE];
-        gs.gradient_stack = entries;
 
-        //create out variables
-        variable a = {.value = 4.19, .id = gs.current_variable_id++};
-        variable b = {.value = 3.21, .id = gs.current_variable_id++};
-        variable out = {.value = 0.0, .id = gs.current_variable_id++};
 
         //set the buffers
         cl::Buffer gs_d = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof (gradient_structure));
@@ -287,7 +312,7 @@ int main(int argc, char** argv) {
 
             //our function value.
             struct variable f;
-            
+
             //read our kernel value
             queue.enqueueReadBuffer(out_d, CL_TRUE, 0, sizeof (variable), (struct variable*) &out);
 
@@ -303,9 +328,9 @@ int main(int argc, char** argv) {
 
                 //compute the function gradient
                 g = compute_gradient(gs, gsize);
-                
-          
-                
+
+
+
                 //print function value a derivatives w.r.t a and b.
                 std::cout << std::fixed << std::setprecision(10) << "f  = " << f.value << std::endl;
                 std::cout << a.value << ", df/da = " << g[a.id] << std::endl;
@@ -314,7 +339,7 @@ int main(int argc, char** argv) {
             } else {
                 //finish up with the native api.
                 f = ad_log(&gs, out);
-                
+
                 // print function value a derivatives w.r.t a and b.
                 std::cout << " f  = " << f.value << std::endl;
                 std::cout << a.value << ", df/da = " << 0 << std::endl;
@@ -335,6 +360,10 @@ int main(int argc, char** argv) {
         std::cout << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]);
         exit(0);
     }
+
+    delete[] x;
+    delete[] y;
+    delete[] entries;
 
     return 0;
 }
