@@ -112,14 +112,10 @@ std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs
 /**
  * Simple example of running a ad4cl kernel.
  * 
- * Demonstrates how recording can turned on and off.
+ * Demonstrates how recording can be turned on and off.
  * 
  * Shows how to compute a gradient vector and get the 
  * derivative w.r.t a variable.
- * 
- * @param argc
- * @param argv
- * @return 
  */
 int main(int argc, char** argv) {
 
