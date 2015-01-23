@@ -10,19 +10,18 @@
 
 #include <cstdlib>
 #include <string>
-#include <vector>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <vector>
 #include <cmath>
 
 #define __CL_ENABLE_EXCEPTIONS 
 
 #include "cl.hpp"
-#include "adcl.h"
-#include <fstream>
-#include <sstream>
+#include "ad4cl.h"
 
-#include <iomanip>
-#include <vector>
 
 #define STACK_SIZE 10000000 //reserved size of the stack
 
