@@ -1,5 +1,5 @@
 /* 
- * File:   adcl.h
+ * File:   ad4cl.h
  * Author: Matthew Supernaw
  *
  * Created on January 22, 2015, 3:38 PM
