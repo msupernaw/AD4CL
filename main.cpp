@@ -10,20 +10,24 @@
 
 #include <cstdlib>
 #include <string>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <iomanip>
 #include <vector>
+#include <iostream>
 #include <cmath>
 
 #define __CL_ENABLE_EXCEPTIONS 
 
 #include "cl.hpp"
-#include "ad4cl.h"
+#include "adcl.h"
 
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <vector>
 
-#define STACK_SIZE 10000000 //reserved size of the stack
+//reserved size of the stack
+#define STACK_SIZE 10000000 
+
+#define CL_PROFILING
 
 
 using namespace std;
@@ -94,18 +98,40 @@ inline std::ostream& operator<<(std::ostream& out, const cl::Device& device) {
 //simple kernel to compute the sum of ((a*x[i] + b)-y[i])^2
 std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs,\n"\
        " __global struct entry* gradient_stack,\n"\
-       " __constant struct variable* a,\n"\
-       " __constant struct variable*b,\n"\
-       " __constant const double *x,\n"\
-       " __constant const double *y,\n"\
+       "  __constant struct variable* a,\n"\
+       "  __constant struct variable*b,\n"\
+       " __constant  double *x,\n"\
+       " __constant  double *y,\n"\
        " __global struct variable *out, int size) {\n"\
-   " gs->gradient_stack = gradient_stack;\n"\
    " int id = get_global_id(0);\n"\
+   " if(id==0){init(gs, gradient_stack);barrier(CLK_GLOBAL_MEM_FENCE);}\n"\
    " if (id < size) {\n"\
-   "     struct variable v = times(gs, minus_vd(gs, plus(gs, times_vd(gs, *a, x[id]), *b), y[id]), minus_vd(gs, plus(gs, times_vd(gs, *a, x[id]), *b), y[id]));\n"\
-   "     plus_eq_g(gs, out, v);\n"\
+   "     double xx = x[id];\n"\
+   "     double yy = y[id];\n"\
+   "     struct variable v = times(gs, minus_vd(gs, plus(gs, times_vd(gs, *a, xx), *b), yy), minus_vd(gs, plus(gs, times_vd(gs, *a, xx), *b), yy));\n"\
+   "     out[id] = v;\n"\
    " }\n"\
   "}\n";
+
+void AD(struct gradient_structure* gs,
+        struct variable* a,
+        struct variable*b,
+        double *x,
+        double *y,
+        struct variable *out, int size) {
+
+    //    int id = get_global_id(0);
+    for (int i = 0; i < size; i++) {
+        //minus(gs, plus(gs, times(gs,a, x[i]) ,b), y[i]);
+        struct variable v = times_vv(gs, minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
+        out[i] = v;
+        //        std::cout << out[i].value << " === " << std::pow(((a->value * x[i] + b->value) - y[i]), 2.0) << "\n";
+    }
+
+
+}
+#include <sys/time.h>
+int HOST = 0;
 
 /**
  * Simple example of running a ad4cl kernel.
@@ -118,11 +144,11 @@ std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs
 int main(int argc, char** argv) {
 
     std::string source_code;
-    
+
     //Read the ad4cl api.
     std::string line;
     std::ifstream in;
-    in.open("ad.cl");
+    in.open("C:\\Users\\Matthew\\Documents\\NetBeansProjects\\adcl\\ad.cl");
 
     std::stringstream ss;
 
@@ -130,7 +156,7 @@ int main(int argc, char** argv) {
         std::getline(in, line);
         ss << line << "\n";
     }
-    
+
     //append with our kernel
     ss << my_kernel;
     source_code = ss.str();
@@ -161,7 +187,7 @@ int main(int argc, char** argv) {
         std::cout << platforms[0];
 
         // Get list of devices on default platform and create context
-        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
+        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[1])(), 0};
         context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
         devices = context.getInfo<CL_CONTEXT_DEVICES > ();
 
@@ -179,8 +205,11 @@ int main(int argc, char** argv) {
         program_.build(devices);
 
         //set the queue
+#ifdef CL_PROFILING
+        queue = cl::CommandQueue(context, devices[0], CL_QUEUE_PROFILING_ENABLE);
+#else
         queue = cl::CommandQueue(context, devices[0]);
-
+#endif
         if (error != CL_SUCCESS) {
             std::cout << "---> " << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]) << "\n";
             exit(0);
@@ -195,13 +224,18 @@ int main(int argc, char** argv) {
     }
 
 
-
+    size_t global_size, local_size;
 
     //initialize the data set
     int DATA_SIZE = 1000003;
     double* x = new double[DATA_SIZE];
     double* y = new double[DATA_SIZE];
+    
+    // Number of work items in each local work group
+    local_size = 64;
 
+    // Number of total work items - localSize must be devisor
+    global_size =  std::ceil(DATA_SIZE / (float) local_size+1) * local_size;
 
     double aa = 4.1919;
     double bb = 3.2123;
@@ -220,10 +254,11 @@ int main(int argc, char** argv) {
     struct entry* entries = new entry[STACK_SIZE];
     gs.gradient_stack = entries;
 
-    //create our variables
-    variable a = {.value = 4.19, .id = gs.current_variable_id++};
-    variable b = {.value = 3.21, .id = gs.current_variable_id++};
-    variable out = {.value = 0.0, .id = gs.current_variable_id++};
+    //create out variables
+    variable a = {.value = aa - .005, .id = gs.current_variable_id++};
+    variable b = {.value = bb - .0051, .id = gs.current_variable_id++};
+    variable sum = {.value = 0.0, .id = gs.current_variable_id++};
+    variable* out = new variable[DATA_SIZE]; //{.value = 0.0, .id = gs.current_variable_id++};
 
 
     try {
@@ -236,11 +271,11 @@ int main(int argc, char** argv) {
         cl::Buffer b_d = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof (variable));
         cl::Buffer x_d = cl::Buffer(context, CL_MEM_READ_ONLY, DATA_SIZE * sizeof (double));
         cl::Buffer y_d = cl::Buffer(context, CL_MEM_READ_ONLY, DATA_SIZE * sizeof (double));
-        cl::Buffer out_d = cl::Buffer(context, CL_MEM_WRITE_ONLY, sizeof (variable));
+        cl::Buffer out_d = cl::Buffer(context, CL_MEM_WRITE_ONLY, DATA_SIZE * sizeof (variable));
 
         queue.enqueueWriteBuffer(x_d, CL_TRUE, 0, sizeof (double)*DATA_SIZE, x);
         queue.enqueueWriteBuffer(y_d, CL_TRUE, 0, sizeof (double)*DATA_SIZE, y);
-        queue.enqueueWriteBuffer(out_d, CL_TRUE, 0, sizeof (variable), &out);
+        //        queue.enqueueWriteBuffer(out_d, CL_TRUE, 0, sizeof (variable), &out);
 
         kernel.setArg(0, gs_d);
         kernel.setArg(1, entry_d);
@@ -250,58 +285,96 @@ int main(int argc, char** argv) {
         kernel.setArg(5, y_d);
         kernel.setArg(6, out_d);
         kernel.setArg(7, DATA_SIZE);
+        //        kernel.setArg(8, DATA_STRIDE);
+        // Number of work items in each local work group
+        cl::NDRange localSize(local_size);
+        // Number of total work items - localSize must be devisor
+        cl::NDRange globalSize(global_size); //(int) (std::ceil(DATA_SIZE / (double) 64)*64));
 
-        for (int iter = 0; iter < 10; iter++) {
+
+
+        for (int iter = 0; iter < 36; iter++) {
+            sum.value = 0.0;
             std::cout << "iteration " << iter << std::endl;
             if ((iter % 2) == 0) {
                 gs.recording = 1;
             } else {
-                gs.recording = 0;
+                gs.recording = 1;
             }
-            queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof (gradient_structure), &gs);
-            queue.enqueueWriteBuffer(a_d, CL_TRUE, 0, sizeof (variable), &a);
-            queue.enqueueWriteBuffer(b_d, CL_TRUE, 0, sizeof (variable), &b);
+
+            if (HOST) {
+                static struct timeval tm1, tm2;
+                gettimeofday(&tm1, NULL);
+                AD(&gs, &a, &b, x, y, out, DATA_SIZE);
+                gettimeofday(&tm2, NULL);
+                unsigned long long t = 1000 * (tm2.tv_sec - tm1.tv_sec) + (tm2.tv_usec - tm1.tv_usec) / 1000;
+                printf("%llu ms\n", t);
+            } else {
+
+                queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof (gradient_structure), &gs);
+                queue.enqueueWriteBuffer(a_d, CL_TRUE, 0, sizeof (variable), &a);
+                queue.enqueueWriteBuffer(b_d, CL_TRUE, 0, sizeof (variable), &b);
+                //            out.value = 0.0;
+                queue.enqueueWriteBuffer(out_d, CL_TRUE, 0, DATA_SIZE * sizeof (variable), out);
+                cl::Event event;
+                queue.enqueueNDRangeKernel(
+                        kernel,
+                        cl::NullRange,
+                        globalSize,
+                        localSize,
+                        NULL,
+                        &event);
 
 
 
 
 
-            // Number of work items in each local work group
-            cl::NDRange localSize(1);
-            // Number of total work items - localSize must be devisor
-            cl::NDRange globalSize(DATA_SIZE); //(int) (std::ceil(DATA_SIZE / (double) 64)*64));
+                // Block until kernel completion
+                event.wait();
 
-            cl::Event event;
-            queue.enqueueNDRangeKernel(
-                    kernel,
-                    cl::NullRange,
-                    globalSize,
-                    localSize,
-                    NULL,
-                    &event);
+#ifdef CL_PROFILING
 
-            // Block until kernel completion
-            event.wait();
-
+                cl_ulong start =
+                        event.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+                cl_ulong end =
+                        event.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+                double time = 1.e-6 * (end - start);
+                double startTime = start * 1.e-6;
+                double endTime = end * 1.e-6;
+                cout << "Kernel (start,end) " << startTime << "," << endTime
+                        << " Time for kernel to execute " << time << std::endl;
+#endif
+            }
             std::cout << gs.current_variable_id << "\n";
             std::cout << gs.stack_current << "\n";
 
             //our function value.
             struct variable f;
+            if (!HOST) {
+                //read our kernel value
+                queue.enqueueReadBuffer(out_d, CL_TRUE, 0, DATA_SIZE * sizeof (variable), (struct variable*) out);
 
-            //read our kernel value
-            queue.enqueueReadBuffer(out_d, CL_TRUE, 0, sizeof (variable), (struct variable*) &out);
+            }
 
             if (gs.recording == 1) {
                 double* g;
                 int gsize = 0;
-                queue.enqueueReadBuffer(gs_d, CL_TRUE, 0, sizeof (gradient_structure), &gs);
-                queue.enqueueReadBuffer(entry_d, CL_TRUE, 0, STACK_SIZE * sizeof (entry), (struct entry*) entries);
-                gs.gradient_stack = entries;
 
+                if (!HOST) {
+                    queue.enqueueReadBuffer(gs_d, CL_TRUE, 0, sizeof (gradient_structure), &gs);
+                    queue.enqueueReadBuffer(entry_d, CL_TRUE, 0, STACK_SIZE * sizeof (entry), (struct entry*) entries);
+                    gs.gradient_stack = entries;
+                }
+
+                for (int i = 0; i < DATA_SIZE; i++) {
+                    plus_eq_v(&gs, &sum, out[i]);
+                    //                    sum = plus_vv(&gs, sum, out[i]);
+                    //                std::cout<<sum.value<<"\n";
+                    out[i].value = 0;
+                }
                 //finish up with the native api.
-                f = ad_log(&gs, out);
-
+                f = times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
+                //                break;
                 //compute the function gradient
                 g = compute_gradient(gs, gsize);
 
@@ -313,8 +386,15 @@ int main(int argc, char** argv) {
                 std::cout << b.value << ", df/db = " << g[b.id] << std::endl;
                 free(g);
             } else {
+
+                for (int i = 0; i < DATA_SIZE; i++) {
+                    plus_eq_v(&gs, &sum, out[i]);
+                    //                    sum = plus_vv(&gs, sum, out[i]);
+                    //                std::cout<<sum.value<<"\n";
+                    out[i].value = 0;
+                }
                 //finish up with the native api.
-                f = ad_log(&gs, out);
+                f = times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
 
                 // print function value a derivatives w.r.t a and b.
                 std::cout << " f  = " << f.value << std::endl;
@@ -323,8 +403,8 @@ int main(int argc, char** argv) {
             }
 
             //tweak the values of the independent variables
-            a.value += .00000001;
-            b.value += .00000001;
+            a.value += .0000001;
+            b.value += .0000001;
 
             gs.stack_current = 0;
             gs.current_variable_id = b.id + 1;
@@ -337,7 +417,6 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
-    //clean up 
     delete[] x;
     delete[] y;
     delete[] entries;
