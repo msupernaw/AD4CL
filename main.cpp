@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
     //Read the ad4cl api.
     std::string line;
     std::ifstream in;
-    in.open("C:\\Users\\Matthew\\Documents\\NetBeansProjects\\adcl\\ad.cl");
+    in.open("ad.cl");
 
     std::stringstream ss;
 
@@ -258,7 +258,7 @@ int main(int argc, char** argv) {
     variable a = {.value = aa - .005, .id = gs.current_variable_id++};
     variable b = {.value = bb - .0051, .id = gs.current_variable_id++};
     variable sum = {.value = 0.0, .id = gs.current_variable_id++};
-    variable* out = new variable[DATA_SIZE]; //{.value = 0.0, .id = gs.current_variable_id++};
+    variable* out = new variable[DATA_SIZE]; 
 
 
     try {
@@ -285,11 +285,11 @@ int main(int argc, char** argv) {
         kernel.setArg(5, y_d);
         kernel.setArg(6, out_d);
         kernel.setArg(7, DATA_SIZE);
-        //        kernel.setArg(8, DATA_STRIDE);
+        
         // Number of work items in each local work group
         cl::NDRange localSize(local_size);
         // Number of total work items - localSize must be devisor
-        cl::NDRange globalSize(global_size); //(int) (std::ceil(DATA_SIZE / (double) 64)*64));
+        cl::NDRange globalSize(global_size); 
 
 
 
@@ -368,8 +368,7 @@ int main(int argc, char** argv) {
 
                 for (int i = 0; i < DATA_SIZE; i++) {
                     plus_eq_v(&gs, &sum, out[i]);
-                    //                    sum = plus_vv(&gs, sum, out[i]);
-                    //                std::cout<<sum.value<<"\n";
+                  
                     out[i].value = 0;
                 }
                 //finish up with the native api.
@@ -389,8 +388,7 @@ int main(int argc, char** argv) {
 
                 for (int i = 0; i < DATA_SIZE; i++) {
                     plus_eq_v(&gs, &sum, out[i]);
-                    //                    sum = plus_vv(&gs, sum, out[i]);
-                    //                std::cout<<sum.value<<"\n";
+                  
                     out[i].value = 0;
                 }
                 //finish up with the native api.
