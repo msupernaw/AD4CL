@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
         std::cout << platforms[0];
 
         // Get list of devices on default platform and create context
-        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[1])(), 0};
+        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
         context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
         devices = context.getInfo<CL_CONTEXT_DEVICES > ();
 
