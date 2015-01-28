@@ -6,9 +6,15 @@
  * The native version of the API.
  */
 
-#ifndef ADCL_H
-#define	ADCL_H
+#ifndef AD4CL_H
+#define	AD4CL_H
 #include <math.h>
+
+#ifndef DEFAULT_ENTRY_SIZE
+#define DEFAULT_ENTRY_SIZE 10000000
+#endif
+
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -35,6 +41,21 @@ extern "C" {
         int stack_current;
         int recording;
     };
+
+
+    /**
+     * Creates a new dynamically allocated gradient_structure.
+     * @param size - length of the entries array.
+     * @return 
+     */
+    struct gradient_structure* create_gradient_structure(int size) {
+
+        struct gradient_structure* gs = malloc(sizeof (gradient_structure));
+        gs->current_variable_id = 0;
+        gs->recording = 1;
+        gs->stack_current = 0;
+        gs->gradient_stack = malloc(sizeof (entry) * size);
+    }
 
     /**
      * Adds two variables together. If the gradient structure is recording, 
