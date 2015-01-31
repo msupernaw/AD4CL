@@ -1,2 +1,4 @@
 
 1. Improve performance, atomic_inc is a killer, but local memory is too small....
+  - possible solution add another integer to the gradient_structure and initialize prior to kernel launch. max entries per work group
+    this would reduce the wait on atomic_incr, but reduce code readability/maintainability....atomics in opencl 2.0 may be faster though
