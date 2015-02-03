@@ -2,3 +2,6 @@
 1. Improve performance, atomic_inc is a killer, but local memory is too small....
   - possible solution add another integer to the gradient_structure and initialize prior to kernel launch. max entries per work group
     this would reduce the wait on atomic_incr, but reduce code readability/maintainability....atomics in opencl 2.0 may be faster though
+  - or add a global counter for work done on the gpu, add that counter to current_variable_id and stack_current when done with kernel execution.
+  
+2. Test on better GPU, only tested on NVIDIA Geforce 660m, which has slow memory bandwidth(still slightly faster than when run on host).
