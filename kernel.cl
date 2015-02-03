@@ -13,6 +13,7 @@ __kernel void AD(__global struct gradient_structure* gs,
 
 
     if (id < size) {
+        //using this variable temp results in less writes to the gradient_structure.    
         struct variable temp = minus_vd(gs, plus(gs, times_vd(gs, *a, x[id]), *b), y[id]);
         struct variable v = times(gs, temp, temp); // minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
         out[id] = v;
