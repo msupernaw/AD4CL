@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
     //Read the ad4cl api.
     std::string line;
     std::ifstream in;
-    in.open("C:\\Users\\Matthew\\Documents\\NetBeansProjects\\adcl\\ad.cl");
+    in.open("ad.cl");
 
     std::stringstream ss;
 
