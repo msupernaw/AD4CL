@@ -17,8 +17,8 @@
 #define __CL_ENABLE_EXCEPTIONS 
 
 #include "cl.hpp"
-#include "adcl.h"
-
+#include "ad4cl.h"
+#include "Variable.hpp"
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -97,20 +97,24 @@ inline std::ostream& operator<<(std::ostream& out, const cl::Device& device) {
 
 //simple kernel to compute the sum of ((a*x[i] + b)-y[i])^2
 std::string my_kernel = "__kernel void AD(__global struct gradient_structure* gs,\n"\
-       " __global struct entry* gradient_stack,\n"\
-       "  __constant struct variable* a,\n"\
-       "  __constant struct variable*b,\n"\
-       " __constant  double *x,\n"\
-       " __constant  double *y,\n"\
+       " __global  struct entry*  gradient_stack,\n"\
+       "  const __global struct  variable* a,\n"\
+       "  const __global struct  variable*b,\n"\
+       " const __global  double  *x,\n"\
+       " const __global  double  *y,\n"\
        " __global struct variable *out, int size) {\n"\
+        "struct local_gradient_structure lgs;\n"\
    " int id = get_global_id(0);\n"\
+        " struct variable al = *a;\n"\
+        " struct variable bl = *b;\n"\
    " if(id==0){init(gs, gradient_stack);barrier(CLK_GLOBAL_MEM_FENCE);}\n"\
-   " if (id < size) {\n"\
+        " if (id < size) {\n"\
    "     double xx = x[id];\n"\
    "     double yy = y[id];\n"\
-   "     struct variable v = times(gs, minus_vd(gs, plus(gs, times_vd(gs, *a, xx), *b), yy), minus_vd(gs, plus(gs, times_vd(gs, *a, xx), *b), yy));\n"\
+        "struct variable temp =minus_vd(gs, plus(gs, times_vd(gs, al, xx), bl), yy);\n"\
+   "     struct variable v = pow_d(gs, temp,2.0);\n"\
    "     out[id] = v;\n"\
-   " }\n"\
+   " }\n/*if(get_local_id(0)){gs->counter+=lgs.current_variable_id++;}*/"\
   "}\n";
 
 void AD(struct gradient_structure* gs,
@@ -123,7 +127,8 @@ void AD(struct gradient_structure* gs,
     //    int id = get_global_id(0);
     for (int i = 0; i < size; i++) {
         //minus(gs, plus(gs, times(gs,a, x[i]) ,b), y[i]);
-        struct variable v = times_vv(gs, minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
+        struct variable temp =  minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]);
+        struct variable v = times_vv(gs,temp,temp);// minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
         out[i] = v;
         //        std::cout << out[i].value << " === " << std::pow(((a->value * x[i] + b->value) - y[i]), 2.0) << "\n";
     }
@@ -133,6 +138,16 @@ void AD(struct gradient_structure* gs,
 #include <sys/time.h>
 int HOST = 0;
 
+void TEST_EXPRESSION() {
+
+
+
+
+}
+
+
+
+#include <limits>
 /**
  * Simple example of running a ad4cl kernel.
  * 
@@ -142,13 +157,15 @@ int HOST = 0;
  * derivative w.r.t a variable.
  */
 int main(int argc, char** argv) {
+    std::cout << sizeof (struct gradient_structure) << "\n" << sizeof (struct entry);
+    std::cout << "\n" << 49000 / 40 << "\n";
 
     std::string source_code;
 
     //Read the ad4cl api.
     std::string line;
     std::ifstream in;
-    in.open("ad.cl");
+    in.open("C:\\Users\\Matthew\\Documents\\NetBeansProjects\\adcl\\ad.cl");
 
     std::stringstream ss;
 
@@ -156,12 +173,21 @@ int main(int argc, char** argv) {
         std::getline(in, line);
         ss << line << "\n";
     }
+    
+     std::ifstream kin;
+    kin.open("kernel.cl");
+
+    while (kin.good()) {
+        std::getline(kin, line);
+        ss << line << "\n";
+    }
+    
 
     //append with our kernel
-    ss << my_kernel;
+//    ss << my_kernel;
     source_code = ss.str();
 
-
+    std::cout<<source_code<<"\n";
 
 
 
@@ -184,7 +210,7 @@ int main(int argc, char** argv) {
         }
 
         //print platform info 
-        std::cout << platforms[0];
+        std::cout << platforms[1];
 
         // Get list of devices on default platform and create context
         cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
@@ -227,16 +253,17 @@ int main(int argc, char** argv) {
     size_t global_size, local_size;
 
     //initialize the data set
-    int DATA_SIZE = 1000003;
+    int DATA_SIZE = 700003;
     double* x = new double[DATA_SIZE];
     double* y = new double[DATA_SIZE];
-    
+
     // Number of work items in each local work group
-    local_size = 64;
+    local_size = 64;//devices[0].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE > ();
 
     // Number of total work items - localSize must be devisor
-    global_size =  std::ceil(DATA_SIZE / (float) local_size+1) * local_size;
-
+    global_size = std::ceil(DATA_SIZE / (float) local_size + 1) * local_size;
+std::cout << global_size << "\n";
+    //    exit(0);
     double aa = 4.1919;
     double bb = 3.2123;
 
@@ -251,14 +278,20 @@ int main(int argc, char** argv) {
     gs.current_variable_id = 0;
     gs.stack_current = 0;
     gs.recording = 1;
+    gs.counter = 0;
+    gs.max_entries_per_kernel = 9;
     struct entry* entries = new entry[STACK_SIZE];
+    for (int i = 0; i < STACK_SIZE; i++) {
+        entries[i].size = 0;
+        entries[i].id = 0;
+    }
     gs.gradient_stack = entries;
 
     //create out variables
     variable a = {.value = aa - .005, .id = gs.current_variable_id++};
     variable b = {.value = bb - .0051, .id = gs.current_variable_id++};
     variable sum = {.value = 0.0, .id = gs.current_variable_id++};
-    variable* out = new variable[DATA_SIZE]; 
+    variable* out = new variable[DATA_SIZE]; //{.value = 0.0, .id = gs.current_variable_id++};
 
 
     try {
@@ -285,11 +318,11 @@ int main(int argc, char** argv) {
         kernel.setArg(5, y_d);
         kernel.setArg(6, out_d);
         kernel.setArg(7, DATA_SIZE);
-        
+        //        kernel.setArg(8, DATA_STRIDE);
         // Number of work items in each local work group
         cl::NDRange localSize(local_size);
         // Number of total work items - localSize must be devisor
-        cl::NDRange globalSize(global_size); 
+        cl::NDRange globalSize(global_size); //(int) (std::ceil(DATA_SIZE / (double) 64)*64));
 
 
 
@@ -345,8 +378,7 @@ int main(int argc, char** argv) {
                         << " Time for kernel to execute " << time << std::endl;
 #endif
             }
-            std::cout << gs.current_variable_id << "\n";
-            std::cout << gs.stack_current << "\n";
+
 
             //our function value.
             struct variable f;
@@ -364,15 +396,24 @@ int main(int argc, char** argv) {
                     queue.enqueueReadBuffer(gs_d, CL_TRUE, 0, sizeof (gradient_structure), &gs);
                     queue.enqueueReadBuffer(entry_d, CL_TRUE, 0, STACK_SIZE * sizeof (entry), (struct entry*) entries);
                     gs.gradient_stack = entries;
+
+                    gs.stack_current += gs.counter;
+                    gs.current_variable_id += gs.counter;
+                    std::cout << gs.current_variable_id << "\n";
+                    std::cout << gs.stack_current << std::endl;
+
                 }
 
+
                 for (int i = 0; i < DATA_SIZE; i++) {
-                    plus_eq_v(&gs, &sum, out[i]);
-                  
+                    plus_eq_v(&gs, &sum, out[i]/*times_vv(&gs,out[i],out[i])*/);
+                    //                    sum = plus_vv(&gs, sum, out[i]);
+                    //                std::cout<<sum.value<<"\n";
                     out[i].value = 0;
                 }
                 //finish up with the native api.
                 f = times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
+
                 //                break;
                 //compute the function gradient
                 g = compute_gradient(gs, gsize);
@@ -388,7 +429,8 @@ int main(int argc, char** argv) {
 
                 for (int i = 0; i < DATA_SIZE; i++) {
                     plus_eq_v(&gs, &sum, out[i]);
-                  
+                    //                    sum = plus_vv(&gs, sum, out[i]);
+                    //                std::cout<<sum.value<<"\n";
                     out[i].value = 0;
                 }
                 //finish up with the native api.
@@ -406,7 +448,11 @@ int main(int argc, char** argv) {
 
             gs.stack_current = 0;
             gs.current_variable_id = b.id + 1;
-
+            gs.counter = 1;
+            for (int i = 0; i < STACK_SIZE; i++) {
+                entries[i].size = 0;
+                entries[i].id = 0;
+            }
         }
 
     } catch (cl::Error err) {
