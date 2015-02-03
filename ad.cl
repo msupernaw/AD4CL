@@ -48,12 +48,6 @@ typedef float16 real16_t;
 #endif
 
 
-
-//#define /*__private*/
-
-//__local int stack_id;
-//__local int current_id;
-
 struct /*__attribute__ ((packed))*/ variable {
     double value;
     int id;
@@ -75,39 +69,20 @@ struct /*__attribute__ ((packed))*/ gradient_structure {
     int current_variable_id;
     int stack_current;
     __constant int recording;
-    int scratch;
+    int counter;
+    int max_entries_per_kernel;
 };
-
-struct /*__attribute__ ((packed))*/ local_gradient_structure {
-    __local struct entry gradient_stack[1000];
-    int current_variable_id;
-    int stack_current;
-    int global_variable_id;
-    int recording;
-};
-
-void semaphor(__global int * semaphor) {
-    int occupied = atom_xchg(semaphor, 1);
-    while (occupied > 0) {
-        occupied = atom_xchg(semaphor, 1);
-    }
-}
-
-void release_semaphor(__global int * semaphor) {
-    int prevVal = atom_xchg(semaphor, 0);
-}
 
 inline void init(__global struct gradient_structure* gs, __global struct entry * gradient_stack) {
-    //    current_id =0;
-    //    stack_id = 0;
-    //    im_recording = gs->recording;
     gs->gradient_stack = gradient_stack;
 }
 
-inline void final(__global struct gradient_structure* gs, __global struct entry * gradient_stack) {
+inline void final(__global struct gradient_structure* gs) {
 
-    gs->stack_current += gs->scratch;
-    gs->current_variable_id += gs->scratch;
+   
+    gs->stack_current += gs->counter;
+    gs->current_variable_id += gs->counter;
+    gs->counter = 1;
 }
 
 /**
@@ -123,7 +98,7 @@ inline const struct variable plus(__global struct gradient_structure* gs, struct
     struct variable ret = {.value = a.value + b.value, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -131,6 +106,15 @@ inline const struct variable plus(__global struct gradient_structure* gs, struct
         e->coeff[0] = (struct adpair){.dx = 1.0, .id = a.id};
         e->coeff[1] = (struct adpair){.dx = 1.0, .id = b.id};
         e->size = 2;
+
+        //        gs->gradient_stack[index + gs->stack_current] =
+        //                (struct entry){.coeff =
+        //            {
+        //                {.dx = 1.0, .id = a.id},
+        //                {.dx = 1.0, .id = b.id}
+        //            }, .id = ret.id, .size = 2};
+
+
     }
 
     return ret;
@@ -149,7 +133,7 @@ inline const struct variable plus_vd(__global struct gradient_structure* gs, str
     struct variable ret = {.value = a.value + b, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -174,7 +158,7 @@ inline const struct variable plus_dv(__global struct gradient_structure* gs, dou
     struct variable ret = {.value = a + b.value, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -198,7 +182,7 @@ inline void plus_eq(__global struct gradient_structure* gs, struct variable* a, 
     a->value += b.value;
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
         e->coeff[0] = (struct adpair){.dx = 1.0, .id = a->id};
@@ -212,7 +196,7 @@ inline void plus_eq_g(__global struct gradient_structure* gs, __global struct va
     a->value += b.value;
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
         e->coeff[0] = (struct adpair){.dx = 1.0, .id = a->id};
@@ -234,7 +218,7 @@ inline void plus_eq_d(__global struct gradient_structure* gs, struct variable* a
     a->value += b;
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
         e->coeff[0] = (struct adpair){.dx = 1.0, .id = a->id};
@@ -256,7 +240,7 @@ inline const struct variable minus(__global struct gradient_structure* gs, struc
     struct variable ret = {.value = a.value - b.value, .id = 0};
 
     if (gs->recording) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -282,7 +266,7 @@ inline const struct variable minus_vd(__global struct gradient_structure* gs, st
     struct variable ret = {.value = a.value - b, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -307,7 +291,7 @@ inline const struct variable minus_dv(__global struct gradient_structure* gs, do
     struct variable ret = {.value = a - b.value, .id = 0};
 
     if (gs->recording) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -333,7 +317,7 @@ inline const struct variable times(__global struct gradient_structure* gs, struc
 
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -359,7 +343,7 @@ inline const struct variable times_vd(__global struct gradient_structure* gs, st
     struct variable ret = {.value = a.value * b, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -384,7 +368,7 @@ inline const struct variable times_dv(__global struct gradient_structure* gs, do
     struct variable ret = {.value = a * b.value, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -409,7 +393,7 @@ inline const struct variable divide(__global struct gradient_structure* gs, stru
     struct variable ret = {.value = a.value / b.value, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -435,7 +419,7 @@ inline const struct variable divide_vd(__global struct gradient_structure* gs, s
     struct variable ret = {.value = a.value / b, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -459,7 +443,7 @@ inline const struct variable divide_dv(__global struct gradient_structure* gs, d
     struct variable ret = {.value = a / b.value, .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -476,7 +460,7 @@ inline const struct variable __attribute__((overloadable)) cos(__global struct g
     struct variable ret = {.value = log(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -492,7 +476,7 @@ inline const struct variable __attribute__((overloadable)) sin(__global struct g
     struct variable ret = {.value = sin(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -508,7 +492,7 @@ inline const struct variable __attribute__((overloadable)) tan(__global struct g
     struct variable ret = {.value = tan(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -525,7 +509,7 @@ inline const struct variable __attribute__((overloadable)) acos(__global struct 
     struct variable ret = {.value = acos(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -545,7 +529,7 @@ inline const struct variable __attribute__((overloadable)) asin(__global struct 
     struct variable ret = {.value = asin(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -565,7 +549,7 @@ inline const struct variable __attribute__((overloadable)) atan(__global struct 
     struct variable ret = {.value = atan(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -582,7 +566,7 @@ inline const struct variable __attribute__((overloadable)) cosh(__global struct 
     struct variable ret = {.value = cosh(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -598,7 +582,7 @@ inline const struct variable __attribute__((overloadable)) sinh(__global struct 
     struct variable ret = {.value = sinh(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -614,7 +598,7 @@ inline const struct variable __attribute__((overloadable)) tanh(__global struct 
     struct variable ret = {.value = tanh(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -631,7 +615,7 @@ inline const struct variable __attribute__((overloadable)) exp(__global struct g
     struct variable ret = {.value = exp(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -647,7 +631,7 @@ inline const struct variable __attribute__((overloadable)) log(__global struct g
     struct variable ret = {.value = log(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -664,7 +648,7 @@ inline const struct variable __attribute__((overloadable)) log10(__global struct
     struct variable ret = {.value = log10(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -682,7 +666,7 @@ inline const struct variable __attribute__((overloadable)) pow(__global struct g
     struct variable ret = {.value = pow(a.value, b.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -701,7 +685,7 @@ inline const struct variable __attribute__((overloadable)) pow_d(__global struct
     struct variable ret = {.value = pow(a.value, b), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -718,7 +702,7 @@ inline const struct variable __attribute__((overloadable)) d_pow(__global struct
     struct variable ret = {.value = pow(a, b.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
@@ -735,7 +719,7 @@ inline const struct variable __attribute__((overloadable)) sqrt(__global struct 
     struct variable ret = {.value = sqrt(v.value), .id = 0};
 
     if (gs->recording == 1) {
-        int index = atomic_inc(&gs->scratch);
+        int index = atomic_inc(&gs->counter);
         ret.id = index + gs->current_variable_id;
         __global struct entry* e =
                 &gs->gradient_stack[index + gs->stack_current];
