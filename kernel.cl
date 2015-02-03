@@ -1,4 +1,9 @@
 
+
+/**
+ * compute:
+ * v[i] = ((a*x[i] + b)-y[i])^2
+ */ 
 __kernel void AD(__global struct gradient_structure* gs,
         __global struct entry* gradient_stack,
         __global struct variable* a,
