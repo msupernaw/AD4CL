@@ -1,50 +1,75 @@
 /* 
- * File:   ad4cl.h
- * Author: Matthew Supernaw
+ * File:   adcl.h
+ * Author: Matthew
  *
  * Created on January 22, 2015, 3:38 PM
- * The native version of the API.
  */
 
-#ifndef AD4CL_H
-#define	AD4CL_H
+#ifndef ADCL_H
+#define	ADCL_H
 #include <math.h>
+#include <malloc.h>
+#include <stdint.h>
 
 #ifndef DEFAULT_ENTRY_SIZE
 #define DEFAULT_ENTRY_SIZE 10000000
 #endif
+
+inline uint32_t ad_atomic_inc(uint32_t* ptr) {
+#ifdef USE_ATOMIC
+#if (defined(_M_IA64) || defined(_M_AMD64)) && !defined(RC_INVOKED)
+    return InterlockedIncrement(ptr) - 1;
+#elif defined(__MINGW32__)
+    return InterlockedIncrement((long *) ptr) - 1;
+#else
+    return (InterlockedIncrement) (ptr) - 1;
+#endif
+#else
+    return *ptr++;
+#endif
+}
+
+
+//
+//#ifdef WINDOWS_OS
+//#define ATOMIC_INC(ptr) InterlockedIncrement(ptr)
+//#elif defined( __linux__)
+//
+//#endif
+
 
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-    struct variable {
+    struct /*__attribute__ ((packed))*/ variable {
         double value;
         int id;
     };
 
-    struct adpair {
+    struct /*__attribute__ ((packed))*/ adpair {
         double dx;
         int id;
     };
 
-    struct entry {
+    struct /*__attribute__ ((packed))*/ entry {
         struct adpair coeff[2];
         int id;
         int size;
     };
 
-    struct gradient_structure {
+    struct /*__attribute__ ((packed))*/ gradient_structure {
         struct entry* gradient_stack;
         int current_variable_id;
         int stack_current;
         int recording;
+        int counter;
+        int max_entries_per_kernel;
     };
 
-
     /**
-     * Creates a new dynamically allocated gradient_structure.
+     * Creates a new gradient_structure.
      * @param size - length of the entries array.
      * @return 
      */
@@ -651,7 +676,7 @@ extern "C" {
 
     inline const struct variable __attribute__((overloadable)) ad_pow(struct gradient_structure* gs,
             struct variable a, struct variable b) {
-        struct variable ret = {.value = pow(a.value,b.value), .id = 0};
+        struct variable ret = {.value = pow(a.value, b.value), .id = 0};
 
         if (gs->recording == 1) {
             int current = gs->stack_current++;
@@ -659,7 +684,7 @@ extern "C" {
             /*__private*/ struct entry e;
             double inv = b.value * pow(a.value, b.value - (1.0));
             e.coeff[0] = (struct adpair){.dx = inv, .id = a.id};
-            e.coeff[1] = (struct adpair){.dx = log(a.value)*ret.value, .id = b.id};
+            e.coeff[1] = (struct adpair){.dx = log(a.value) * ret.value, .id = b.id};
             e.size = 2;
             e.id = var_id;
             ret.id = var_id;
@@ -668,36 +693,36 @@ extern "C" {
         }
         return ret;
     }
-    
+
     inline const struct variable __attribute__((overloadable)) ad_pow_d(struct gradient_structure* gs,
             struct variable a, double b) {
-        struct variable ret = {.value = pow(a.value,b), .id = 0};
+        struct variable ret = {.value = pow(a.value, b), .id = 0};
 
         if (gs->recording == 1) {
             int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            ret.id = gs->current_variable_id++;
             /*__private*/ struct entry e;
             double inv = b * pow(a.value, b - (1.0));
             e.coeff[0] = (struct adpair){.dx = inv, .id = a.id};
             e.size = 1;
-            e.id = var_id;
-            ret.id = var_id;
+            e.id = ret.id;
+            //            ret.id = var_id;
             //barrier(CLK_LOCAL_MEM_FENCE);
             gs->gradient_stack[current] = e;
         }
         return ret;
     }
-    
+
     inline const struct variable __attribute__((overloadable)) ad_d_pow(struct gradient_structure* gs,
             double a, struct variable b) {
-        struct variable ret = {.value = pow(a,b.value), .id = 0};
+        struct variable ret = {.value = pow(a, b.value), .id = 0};
 
         if (gs->recording == 1) {
             int current = gs->stack_current++;
             int var_id = gs->current_variable_id++;
             /*__private*/ struct entry e;
             double inv = b.value * pow(a, b.value - (1.0));
-            e.coeff[0] = (struct adpair){.dx = log(a)*ret.value, .id = b.id};
+            e.coeff[0] = (struct adpair){.dx = log(a) * ret.value, .id = b.id};
             e.size = 1;
             e.id = var_id;
             ret.id = var_id;
@@ -706,7 +731,7 @@ extern "C" {
         }
         return ret;
     }
-    
+
     inline const struct variable __attribute__((overloadable)) ad_sqrt(struct gradient_structure* gs, struct variable v) {
         struct variable ret = {.value = sqrt(v.value), .id = 0};
 
@@ -714,7 +739,7 @@ extern "C" {
             int current = gs->stack_current++;
             int var_id = gs->current_variable_id++;
             /*__private*/ struct entry e;
-            double inv = .5/ ret.value;
+            double inv = .5 / ret.value;
             e.coeff[0] = (struct adpair){.dx = inv, .id = v.id};
             e.size = 1;
             e.id = var_id;
@@ -725,6 +750,17 @@ extern "C" {
         return ret;
     }
 
+    struct entry* create_entries(int size) {
+        struct entry* e = (struct entry*) malloc(size * sizeof (entry));
+
+        for (int i = 0; i < size; i++) {
+            e[i].id = 0;
+            e[i].size = 0;
+        }
+
+        return e;
+
+    }
 
     double* compute_gradient(struct gradient_structure& gs, int& size) {
 
@@ -733,26 +769,27 @@ extern "C" {
         if (gs.recording == 1) {
             gradient = malloc(sizeof (double)*(gs.current_variable_id + 1));
             size = gs.current_variable_id + 1;
-            for (int i = 0; i < size; i++) {
-                gradient[i] = 0;
-            }
+            memset(gradient, 0, size * sizeof (double));
+            //            for (int i = 0; i < size; i++) {
+            //                gradient[i] = 0;
+            //            }
 
             gradient[gs.gradient_stack[gs.stack_current - 1].id] = 1.0;
 
             for (int j = gs.stack_current - 1; j >= 0; j--) {
                 int id = gs.gradient_stack[j].id;
                 double w = gradient[id];
+                //                if (w != 0.0) {
                 gradient[id] = 0.0;
-
-                if (w != 0.0) {
-                    for (int i = 0; i < gs.gradient_stack[j].size; i++) {
-                        gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
-                    }
+                for (int i = 0; i < gs.gradient_stack[j].size; i++) {
+                    gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
                 }
+                //                }
             }
         }
         return gradient;
     }
+
 
 #ifdef	__cplusplus
 }
