@@ -47,6 +47,14 @@ typedef float16 real16_t;
 
 #endif
 
+#ifndef MAX_VARIABLE_IN_EXPESSION
+#define MAX_VARIABLE_IN_EXPESSION 2
+#endif
+
+//#define /*__private*/
+
+//__local int stack_id;
+//__local int current_id;
 
 struct /*__attribute__ ((packed))*/ variable {
     double value;
@@ -59,7 +67,7 @@ struct /*__attribute__ ((packed))*/ adpair {
 };
 
 struct /*__attribute__ ((packed))*/ entry {
-    struct adpair coeff[2];
+    struct adpair coeff[MAX_VARIABLE_IN_EXPESSION];
     int id;
     int size;
 };
@@ -68,22 +76,15 @@ struct /*__attribute__ ((packed))*/ gradient_structure {
     __global struct entry* gradient_stack;
     int current_variable_id;
     int stack_current;
-    __constant int recording;
+    int recording;
     int counter;
-    int max_entries_per_kernel;
+
 };
 
-inline void init(__global struct gradient_structure* gs, __global struct entry * gradient_stack) {
+inline void ad_init(__global struct gradient_structure* gs, __global struct entry * gradient_stack) {
     gs->gradient_stack = gradient_stack;
 }
 
-inline void final(__global struct gradient_structure* gs) {
-
-   
-    gs->stack_current += gs->counter;
-    gs->current_variable_id += gs->counter;
-    gs->counter = 1;
-}
 
 /**
  * Adds two variables together. If the gradient structure is recording, 
@@ -94,7 +95,7 @@ inline void final(__global struct gradient_structure* gs) {
  * @param b
  * @return 
  */
-inline const struct variable plus(__global struct gradient_structure* gs, struct variable a, struct variable b) {
+inline const struct variable ad_plus(__global struct gradient_structure* gs, struct variable a, struct variable b) {
     struct variable ret = {.value = a.value + b.value, .id = 0};
 
     if (gs->recording == 1) {
@@ -106,15 +107,6 @@ inline const struct variable plus(__global struct gradient_structure* gs, struct
         e->coeff[0] = (struct adpair){.dx = 1.0, .id = a.id};
         e->coeff[1] = (struct adpair){.dx = 1.0, .id = b.id};
         e->size = 2;
-
-        //        gs->gradient_stack[index + gs->stack_current] =
-        //                (struct entry){.coeff =
-        //            {
-        //                {.dx = 1.0, .id = a.id},
-        //                {.dx = 1.0, .id = b.id}
-        //            }, .id = ret.id, .size = 2};
-
-
     }
 
     return ret;
@@ -129,7 +121,7 @@ inline const struct variable plus(__global struct gradient_structure* gs, struct
  * @param b
  * @return 
  */
-inline const struct variable plus_vd(__global struct gradient_structure* gs, struct variable a, double b) {
+inline const struct variable ad_plus_vd(__global struct gradient_structure* gs, struct variable a, double b) {
     struct variable ret = {.value = a.value + b, .id = 0};
 
     if (gs->recording == 1) {
@@ -154,7 +146,7 @@ inline const struct variable plus_vd(__global struct gradient_structure* gs, str
  * @param b
  * @return 
  */
-inline const struct variable plus_dv(__global struct gradient_structure* gs, double a, struct variable b) {
+inline const struct variable ad_plus_dv(__global struct gradient_structure* gs, double a, struct variable b) {
     struct variable ret = {.value = a + b.value, .id = 0};
 
     if (gs->recording == 1) {
@@ -178,7 +170,7 @@ inline const struct variable plus_dv(__global struct gradient_structure* gs, dou
  * @param a
  * @param b
  */
-inline void plus_eq(__global struct gradient_structure* gs, struct variable* a, struct variable b) {
+inline void ad_plus_eq(__global struct gradient_structure* gs, struct variable* a, struct variable b) {
     a->value += b.value;
 
     if (gs->recording == 1) {
@@ -192,7 +184,7 @@ inline void plus_eq(__global struct gradient_structure* gs, struct variable* a, 
     }
 }
 
-inline void plus_eq_g(__global struct gradient_structure* gs, __global struct variable* a, struct variable b) {
+inline void ad_plus_eq_g(__global struct gradient_structure* gs, __global struct variable* a, struct variable b) {
     a->value += b.value;
 
     if (gs->recording == 1) {
@@ -214,7 +206,7 @@ inline void plus_eq_g(__global struct gradient_structure* gs, __global struct va
  * @param a
  * @param b
  */
-inline void plus_eq_d(__global struct gradient_structure* gs, struct variable* a, double b) {
+inline void ad_plus_eq_d(__global struct gradient_structure* gs, struct variable* a, double b) {
     a->value += b;
 
     if (gs->recording == 1) {
@@ -236,7 +228,7 @@ inline void plus_eq_d(__global struct gradient_structure* gs, struct variable* a
  * @param b
  * @return 
  */
-inline const struct variable minus(__global struct gradient_structure* gs, struct variable a, struct variable b) {
+inline const struct variable ad_minus(__global struct gradient_structure* gs, struct variable a, struct variable b) {
     struct variable ret = {.value = a.value - b.value, .id = 0};
 
     if (gs->recording) {
@@ -262,7 +254,7 @@ inline const struct variable minus(__global struct gradient_structure* gs, struc
  * @param b
  * @return 
  */
-inline const struct variable minus_vd(__global struct gradient_structure* gs, struct variable a, double b) {
+inline const struct variable ad_minus_vd(__global struct gradient_structure* gs, struct variable a, double b) {
     struct variable ret = {.value = a.value - b, .id = 0};
 
     if (gs->recording == 1) {
@@ -287,7 +279,7 @@ inline const struct variable minus_vd(__global struct gradient_structure* gs, st
  * @param b
  * @return 
  */
-inline const struct variable minus_dv(__global struct gradient_structure* gs, double a, struct variable b) {
+inline const struct variable ad_minus_dv(__global struct gradient_structure* gs, double a, struct variable b) {
     struct variable ret = {.value = a - b.value, .id = 0};
 
     if (gs->recording) {
@@ -312,7 +304,7 @@ inline const struct variable minus_dv(__global struct gradient_structure* gs, do
  * @param b
  * @return 
  */
-inline const struct variable times(__global struct gradient_structure* gs, struct variable a, struct variable b) {
+inline const struct variable ad_times(__global struct gradient_structure* gs, struct variable a, struct variable b) {
     struct variable ret = {.value = a.value * b.value, .id = 0};
 
 
@@ -339,7 +331,7 @@ inline const struct variable times(__global struct gradient_structure* gs, struc
  * @param b
  * @return 
  */
-inline const struct variable times_vd(__global struct gradient_structure* gs, struct variable a, double b) {
+inline const struct variable ad_times_vd(__global struct gradient_structure* gs, struct variable a, double b) {
     struct variable ret = {.value = a.value * b, .id = 0};
 
     if (gs->recording == 1) {
@@ -364,7 +356,7 @@ inline const struct variable times_vd(__global struct gradient_structure* gs, st
  * @param b
  * @return 
  */
-inline const struct variable times_dv(__global struct gradient_structure* gs, double a, struct variable b) {
+inline const struct variable ad_times_dv(__global struct gradient_structure* gs, double a, struct variable b) {
     struct variable ret = {.value = a * b.value, .id = 0};
 
     if (gs->recording == 1) {
@@ -389,7 +381,7 @@ inline const struct variable times_dv(__global struct gradient_structure* gs, do
  * @param b
  * @return 
  */
-inline const struct variable divide(__global struct gradient_structure* gs, struct variable a, struct variable b) {
+inline const struct variable ad_divide(__global struct gradient_structure* gs, struct variable a, struct variable b) {
     struct variable ret = {.value = a.value / b.value, .id = 0};
 
     if (gs->recording == 1) {
@@ -415,7 +407,7 @@ inline const struct variable divide(__global struct gradient_structure* gs, stru
  * @param b
  * @return 
  */
-inline const struct variable divide_vd(__global struct gradient_structure* gs, struct variable a, double b) {
+inline const struct variable ad_divide_vd(__global struct gradient_structure* gs, struct variable a, double b) {
     struct variable ret = {.value = a.value / b, .id = 0};
 
     if (gs->recording == 1) {
@@ -439,7 +431,7 @@ inline const struct variable divide_vd(__global struct gradient_structure* gs, s
  * @param b
  * @return 
  */
-inline const struct variable divide_dv(__global struct gradient_structure* gs, double a, struct variable b) {
+inline const struct variable ad_divide_dv(__global struct gradient_structure* gs, double a, struct variable b) {
     struct variable ret = {.value = a / b.value, .id = 0};
 
     if (gs->recording == 1) {
@@ -456,7 +448,7 @@ inline const struct variable divide_dv(__global struct gradient_structure* gs, d
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) cos(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_cos(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = log(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -472,7 +464,7 @@ inline const struct variable __attribute__((overloadable)) cos(__global struct g
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) sin(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_sin(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = sin(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -488,7 +480,7 @@ inline const struct variable __attribute__((overloadable)) sin(__global struct g
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) tan(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_tan(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = tan(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -505,7 +497,7 @@ inline const struct variable __attribute__((overloadable)) tan(__global struct g
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) acos(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_acos(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = acos(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -525,7 +517,7 @@ inline const struct variable __attribute__((overloadable)) acos(__global struct 
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) asin(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_asin(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = asin(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -545,7 +537,7 @@ inline const struct variable __attribute__((overloadable)) asin(__global struct 
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) atan(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_atan(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = atan(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -562,7 +554,7 @@ inline const struct variable __attribute__((overloadable)) atan(__global struct 
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) cosh(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_cosh(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = cosh(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -578,7 +570,7 @@ inline const struct variable __attribute__((overloadable)) cosh(__global struct 
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) sinh(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_sinh(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = sinh(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -594,7 +586,7 @@ inline const struct variable __attribute__((overloadable)) sinh(__global struct 
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) tanh(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_tanh(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = tanh(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -611,7 +603,7 @@ inline const struct variable __attribute__((overloadable)) tanh(__global struct 
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) exp(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_exp(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = exp(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -627,7 +619,7 @@ inline const struct variable __attribute__((overloadable)) exp(__global struct g
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) log(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_log(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = log(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -644,7 +636,7 @@ inline const struct variable __attribute__((overloadable)) log(__global struct g
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) log10(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_log10(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = log10(v.value), .id = 0};
 
     if (gs->recording == 1) {
@@ -661,7 +653,7 @@ inline const struct variable __attribute__((overloadable)) log10(__global struct
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) pow(__global struct gradient_structure* gs,
+inline const struct variable __attribute__((overloadable)) ad_pow(__global struct gradient_structure* gs,
         struct variable a, struct variable b) {
     struct variable ret = {.value = pow(a.value, b.value), .id = 0};
 
@@ -680,7 +672,7 @@ inline const struct variable __attribute__((overloadable)) pow(__global struct g
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) pow_d(__global struct gradient_structure* gs,
+inline const struct variable __attribute__((overloadable)) ad_pow_vd(__global struct gradient_structure* gs,
         struct variable a, double b) {
     struct variable ret = {.value = pow(a.value, b), .id = 0};
 
@@ -697,7 +689,7 @@ inline const struct variable __attribute__((overloadable)) pow_d(__global struct
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) d_pow(__global struct gradient_structure* gs,
+inline const struct variable __attribute__((overloadable)) ad_pow_dv(__global struct gradient_structure* gs,
         double a, struct variable b) {
     struct variable ret = {.value = pow(a, b.value), .id = 0};
 
@@ -715,7 +707,7 @@ inline const struct variable __attribute__((overloadable)) d_pow(__global struct
     return ret;
 }
 
-inline const struct variable __attribute__((overloadable)) sqrt(__global struct gradient_structure* gs, struct variable v) {
+inline const struct variable __attribute__((overloadable)) ad_sqrt(__global struct gradient_structure* gs, struct variable v) {
     struct variable ret = {.value = sqrt(v.value), .id = 0};
 
     if (gs->recording == 1) {
