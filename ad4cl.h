@@ -15,28 +15,20 @@
 #define DEFAULT_ENTRY_SIZE 10000000
 #endif
 
-inline uint32_t ad_atomic_inc(uint32_t* ptr) {
-#ifdef USE_ATOMIC
-#if (defined(_M_IA64) || defined(_M_AMD64)) && !defined(RC_INVOKED)
-    return InterlockedIncrement(ptr) - 1;
-#elif defined(__MINGW32__)
-    return InterlockedIncrement((long *) ptr) - 1;
-#else
-    return (InterlockedIncrement) (ptr) - 1;
+#ifndef MAX_VARIABLE_IN_EXPESSION
+#define MAX_VARIABLE_IN_EXPESSION 2
 #endif
+
+
+
+
+#define USE_ATOMICS
+
+#ifdef USE_ATOMICS
+#define atomic_inc(ptr) InterlockedIncrement(&ptr)-1
 #else
-    return *ptr++;
+#define atomic_inc(ptr) ptr++;
 #endif
-}
-
-
-//
-//#ifdef WINDOWS_OS
-//#define ATOMIC_INC(ptr) InterlockedIncrement(ptr)
-//#elif defined( __linux__)
-//
-//#endif
-
 
 
 #ifdef	__cplusplus
@@ -54,7 +46,7 @@ extern "C" {
     };
 
     struct /*__attribute__ ((packed))*/ entry {
-        struct adpair coeff[2];
+        struct adpair coeff[MAX_VARIABLE_IN_EXPESSION];
         int id;
         int size;
     };
@@ -65,7 +57,6 @@ extern "C" {
         int stack_current;
         int recording;
         int counter;
-        int max_entries_per_kernel;
     };
 
     /**
@@ -74,12 +65,22 @@ extern "C" {
      * @return 
      */
     struct gradient_structure* create_gradient_structure(int size) {
-
         struct gradient_structure* gs = malloc(sizeof (gradient_structure));
         gs->current_variable_id = 0;
         gs->recording = 1;
         gs->stack_current = 0;
         gs->gradient_stack = malloc(sizeof (entry) * size);
+    }
+
+    /**
+     * To be called after the gradient_structure has been run in a 
+     * OpenCL application. This does not need to be called if the 
+     * gradient_structure has only been run on the host.
+     * @param gs
+     */
+    inline void gpu_restore(struct gradient_structure* gs) {
+        gs->current_variable_id += gs->counter;
+        gs->stack_current += gs->counter;
     }
 
     /**
@@ -91,12 +92,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable plus_vv(struct gradient_structure* gs, struct variable a, struct variable b) {
+    inline const struct variable ad_plus(struct gradient_structure* gs, struct variable a, struct variable b) {
         struct variable ret = {.value = a.value + b.value, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            ret.id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            ret.id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = a.id};
             e.coeff[1] = (struct adpair){.dx = 1.0, .id = b.id};
@@ -118,12 +119,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable plus_vd(struct gradient_structure* gs, struct variable a, double b) {
+    inline const struct variable ad_plus_vd(struct gradient_structure* gs, struct variable a, double b) {
         struct variable ret = {.value = a.value + b, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = a.id};
             e.size = 1;
@@ -147,12 +148,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable plus_dv(struct gradient_structure* gs, double a, struct variable b) {
+    inline const struct variable ad_plus_dv(struct gradient_structure* gs, double a, struct variable b) {
         struct variable ret = {.value = a + b.value, .id = gs->current_variable_id++};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = b.id};
             e.size = 1;
@@ -173,11 +174,11 @@ extern "C" {
      * @param a
      * @param b
      */
-    inline void plus_eq_v(struct gradient_structure* gs, struct variable* a, struct variable b) {
+    inline void ad_plus_eq_v(struct gradient_structure* gs, struct variable* a, struct variable b) {
         a->value += b.value;
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
+            int current = atomic_inc(gs->stack_current);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = a->id};
             e.coeff[1] = (struct adpair){.dx = 1.0, .id = b.id};
@@ -196,11 +197,11 @@ extern "C" {
      * @param a
      * @param b
      */
-    inline void plus_eq_d(struct gradient_structure* gs, struct variable* a, double b) {
+    inline void ad_plus_eq_d(struct gradient_structure* gs, struct variable* a, double b) {
         a->value += b;
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
+            int current = atomic_inc(gs->stack_current);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = a->id};
             e.size = 1;
@@ -219,12 +220,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable minus_vv(struct gradient_structure* gs, struct variable a, struct variable b) {
+    inline const struct variable ad_minus(struct gradient_structure* gs, struct variable a, struct variable b) {
         struct variable ret = {.value = a.value - b.value, .id = 0};
 
         if (gs->recording) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = a.id};
             e.coeff[1] = (struct adpair){.dx = -1.0, .id = b.id};
@@ -247,12 +248,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable minus_vd(struct gradient_structure* gs, struct variable a, double b) {
+    inline const struct variable ad_minus_vd(struct gradient_structure* gs, struct variable a, double b) {
         struct variable ret = {.value = a.value - b, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            ret.id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            ret.id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = 1.0, .id = a.id};
             e.size = 1;
@@ -274,12 +275,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable minus_dv(struct gradient_structure* gs, double a, struct variable b) {
+    inline const struct variable ad_minus_dv(struct gradient_structure* gs, double a, struct variable b) {
         struct variable ret = {.value = a - b.value, .id = 0};
 
         if (gs->recording) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = -1.0, .id = b.id};
             e.size = 1;
@@ -301,12 +302,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable times_vv(struct gradient_structure* gs, struct variable a, struct variable b) {
+    inline const struct variable ad_times(struct gradient_structure* gs, struct variable a, struct variable b) {
         struct variable ret = {.value = a.value * b.value, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            ret.id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            ret.id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = a.value, .id = a.id};
             e.coeff[1] = (struct adpair){.dx = b.value, .id = b.id};
@@ -328,12 +329,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable times_vd(struct gradient_structure* gs, struct variable a, double b) {
+    inline const struct variable ad_times_vd(struct gradient_structure* gs, struct variable a, double b) {
         struct variable ret = {.value = a.value * b, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = a.value, .id = a.id};
             e.size = 1;
@@ -355,12 +356,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable times_dv(struct gradient_structure* gs, double a, struct variable b) {
+    inline const struct variable ad_times_dv(struct gradient_structure* gs, double a, struct variable b) {
         struct variable ret = {.value = a * b.value, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = b.value, .id = b.id};
             e.size = 1;
@@ -382,12 +383,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable divide_vv(struct gradient_structure* gs, struct variable a, struct variable b) {
+    inline const struct variable ad_divide(struct gradient_structure* gs, struct variable a, struct variable b) {
         struct variable ret = {.value = a.value / b.value, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = 1.0 / b.value;
             e.coeff[0] = (struct adpair){.dx = inv, .id = a.id};
@@ -410,12 +411,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable divide_vd(struct gradient_structure* gs, struct variable a, double b) {
+    inline const struct variable ad_divide_vd(struct gradient_structure* gs, struct variable a, double b) {
         struct variable ret = {.value = a.value / b, .id = gs->current_variable_id++};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = 1.0 / b;
             e.coeff[0] = (struct adpair){.dx = inv, .id = a.id};
@@ -436,12 +437,12 @@ extern "C" {
      * @param b
      * @return 
      */
-    inline const struct variable divide_dv(struct gradient_structure* gs, double a, struct variable b) {
+    inline const struct variable ad_divide_dv(struct gradient_structure* gs, double a, struct variable b) {
         struct variable ret = {.value = a / b.value, .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = 1.0 / b.value;
             e.coeff[0] = (struct adpair){.dx = -1.0 * ret.value * inv, .id = b.id};
@@ -459,8 +460,8 @@ extern "C" {
         struct variable ret = {.value = log(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             //            double inv = 1.0 / v.value;
             e.coeff[0] = (struct adpair){.dx = -1.0 * sin(v.value), .id = v.id};
@@ -477,8 +478,8 @@ extern "C" {
         struct variable ret = {.value = sin(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             //            double inv = 1.0 / v.value;
             e.coeff[0] = (struct adpair){.dx = cos(v.value), .id = v.id};
@@ -495,8 +496,8 @@ extern "C" {
         struct variable ret = {.value = tan(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double temp = 1.0 / cos(v.value);
             e.coeff[0] = (struct adpair){.dx = temp*temp, .id = v.id};
@@ -513,8 +514,8 @@ extern "C" {
         struct variable ret = {.value = acos(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double temp = (-1.0) /
                     pow(((1.0) -
@@ -534,8 +535,8 @@ extern "C" {
         struct variable ret = {.value = asin(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double temp = (1.0) /
                     pow(((1.0) -
@@ -555,8 +556,8 @@ extern "C" {
         struct variable ret = {.value = atan(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double temp = (1.0) / (v.value * v.value + (1.0));
             e.coeff[0] = (struct adpair){.dx = temp, .id = v.id};
@@ -573,8 +574,8 @@ extern "C" {
         struct variable ret = {.value = cosh(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = sinh(v.value), .id = v.id};
             e.size = 1;
@@ -590,8 +591,8 @@ extern "C" {
         struct variable ret = {.value = sinh(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = cosh(v.value), .id = v.id};
             e.size = 1;
@@ -607,8 +608,8 @@ extern "C" {
         struct variable ret = {.value = tanh(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double temp = (1.0 / cosh(v.value))*(1.0 / cosh(v.value));
             e.coeff[0] = (struct adpair){.dx = temp, .id = v.id};
@@ -625,8 +626,8 @@ extern "C" {
         struct variable ret = {.value = exp(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             e.coeff[0] = (struct adpair){.dx = ret.value, .id = v.id};
             e.size = 1;
@@ -642,8 +643,8 @@ extern "C" {
         struct variable ret = {.value = log(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = 1.0 / v.value;
             e.coeff[0] = (struct adpair){.dx = inv, .id = v.id};
@@ -660,8 +661,8 @@ extern "C" {
         struct variable ret = {.value = log10(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = 1.0 / (v.value * 2.30258509299404590109361379290930926799774169921875);
             e.coeff[0] = (struct adpair){.dx = inv, .id = v.id};
@@ -679,8 +680,8 @@ extern "C" {
         struct variable ret = {.value = pow(a.value, b.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = b.value * pow(a.value, b.value - (1.0));
             e.coeff[0] = (struct adpair){.dx = inv, .id = a.id};
@@ -694,13 +695,13 @@ extern "C" {
         return ret;
     }
 
-    inline const struct variable __attribute__((overloadable)) ad_pow_d(struct gradient_structure* gs,
+    inline const struct variable __attribute__((overloadable)) ad_pow_vd(struct gradient_structure* gs,
             struct variable a, double b) {
         struct variable ret = {.value = pow(a.value, b), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            ret.id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            ret.id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = b * pow(a.value, b - (1.0));
             e.coeff[0] = (struct adpair){.dx = inv, .id = a.id};
@@ -713,13 +714,13 @@ extern "C" {
         return ret;
     }
 
-    inline const struct variable __attribute__((overloadable)) ad_d_pow(struct gradient_structure* gs,
+    inline const struct variable __attribute__((overloadable)) ad_pow_dv(struct gradient_structure* gs,
             double a, struct variable b) {
         struct variable ret = {.value = pow(a, b.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = b.value * pow(a, b.value - (1.0));
             e.coeff[0] = (struct adpair){.dx = log(a) * ret.value, .id = b.id};
@@ -736,8 +737,8 @@ extern "C" {
         struct variable ret = {.value = sqrt(v.value), .id = 0};
 
         if (gs->recording == 1) {
-            int current = gs->stack_current++;
-            int var_id = gs->current_variable_id++;
+            int current = atomic_inc(gs->stack_current);
+            int var_id = atomic_inc(gs->current_variable_id);
             /*__private*/ struct entry e;
             double inv = .5 / ret.value;
             e.coeff[0] = (struct adpair){.dx = inv, .id = v.id};
@@ -779,17 +780,19 @@ extern "C" {
             for (int j = gs.stack_current - 1; j >= 0; j--) {
                 int id = gs.gradient_stack[j].id;
                 double w = gradient[id];
-                //                if (w != 0.0) {
-                gradient[id] = 0.0;
-                for (int i = 0; i < gs.gradient_stack[j].size; i++) {
-                    gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
+                if (w != 0.0) {
+                    gradient[id] = 0.0;
+                    for (int i = 0; i < gs.gradient_stack[j].size; i++) {
+                        //                    std::cout<<gs.gradient_stack[j].coeff[i].id<<"+="<<w<<"*"<<gs.gradient_stack[j].coeff[i].dx<<std::endl;
+                        gradient[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
+                    }
                 }
-                //                }
             }
         }
         return gradient;
     }
 
+  
 
 #ifdef	__cplusplus
 }
