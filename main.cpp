@@ -25,7 +25,7 @@
 #include <vector>
 
 //reserved size of the stack
-#define STACK_SIZE 10000000 
+#define STACK_SIZE 5000000 
 
 #define CL_PROFILING
 
@@ -127,8 +127,8 @@ void AD(struct gradient_structure* gs,
     //    int id = get_global_id(0);
     for (int i = 0; i < size; i++) {
         //minus(gs, plus(gs, times(gs,a, x[i]) ,b), y[i]);
-        struct variable temp =  minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]);
-        struct variable v = times_vv(gs,temp,temp);// minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
+        struct variable temp =  ad_minus_vd(gs, ad_plus(gs, ad_times_vd(gs, *a, x[i]), *b), y[i]);
+        struct variable v = ad_times(gs,temp,temp);// minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
         out[i] = v;
         //        std::cout << out[i].value << " === " << std::pow(((a->value * x[i] + b->value) - y[i]), 2.0) << "\n";
     }
@@ -253,15 +253,15 @@ int main(int argc, char** argv) {
     size_t global_size, local_size;
 
     //initialize the data set
-    int DATA_SIZE = 700003;
+    int DATA_SIZE = 1000003;
     double* x = new double[DATA_SIZE];
     double* y = new double[DATA_SIZE];
 
     // Number of work items in each local work group
-    local_size = 64;//devices[0].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE > ();
+    local_size = devices[0].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE > ();
 
     // Number of total work items - localSize must be devisor
-    global_size = std::ceil(DATA_SIZE / (float) local_size + 1) * local_size;
+    global_size = std::ceil(DATA_SIZE / (double) local_size + 1) * local_size;
 std::cout << global_size << "\n";
     //    exit(0);
     double aa = 4.1919;
@@ -279,7 +279,6 @@ std::cout << global_size << "\n";
     gs.stack_current = 0;
     gs.recording = 1;
     gs.counter = 0;
-    gs.max_entries_per_kernel = 9;
     struct entry* entries = new entry[STACK_SIZE];
     for (int i = 0; i < STACK_SIZE; i++) {
         entries[i].size = 0;
@@ -326,7 +325,7 @@ std::cout << global_size << "\n";
 
 
 
-        for (int iter = 0; iter < 36; iter++) {
+        for (int iter = 0; iter < 37; iter++) {
             sum.value = 0.0;
             std::cout << "iteration " << iter << std::endl;
             if ((iter % 2) == 0) {
@@ -340,8 +339,8 @@ std::cout << global_size << "\n";
                 gettimeofday(&tm1, NULL);
                 AD(&gs, &a, &b, x, y, out, DATA_SIZE);
                 gettimeofday(&tm2, NULL);
-                unsigned long long t = 1000 * (tm2.tv_sec - tm1.tv_sec) + (tm2.tv_usec - tm1.tv_usec) / 1000;
-                printf("%llu ms\n", t);
+                double t = 1000.00 * (tm2.tv_sec - tm1.tv_sec) + (tm2.tv_usec - tm1.tv_usec) / 1000.000;
+                std::cout<<t<<" ms"<<std::endl;
             } else {
 
                 queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof (gradient_structure), &gs);
@@ -397,8 +396,9 @@ std::cout << global_size << "\n";
                     queue.enqueueReadBuffer(entry_d, CL_TRUE, 0, STACK_SIZE * sizeof (entry), (struct entry*) entries);
                     gs.gradient_stack = entries;
 
-                    gs.stack_current += gs.counter;
-                    gs.current_variable_id += gs.counter;
+                    gpu_restore(&gs);
+//                    gs.stack_current += gs.counter;
+//                    gs.current_variable_id += gs.counter;
                     std::cout << gs.current_variable_id << "\n";
                     std::cout << gs.stack_current << std::endl;
 
@@ -406,13 +406,15 @@ std::cout << global_size << "\n";
 
 
                 for (int i = 0; i < DATA_SIZE; i++) {
-                    plus_eq_v(&gs, &sum, out[i]/*times_vv(&gs,out[i],out[i])*/);
+//                    std::cout<<out[i].value<<"\n";
+                    ad_plus_eq_v(&gs, &sum, out[i]/*times_vv(&gs,out[i],out[i])*/);
                     //                    sum = plus_vv(&gs, sum, out[i]);
                     //                std::cout<<sum.value<<"\n";
                     out[i].value = 0;
                 }
+//                exit(0);
                 //finish up with the native api.
-                f = times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
+                f = ad_times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
 
                 //                break;
                 //compute the function gradient
@@ -428,13 +430,13 @@ std::cout << global_size << "\n";
             } else {
 
                 for (int i = 0; i < DATA_SIZE; i++) {
-                    plus_eq_v(&gs, &sum, out[i]);
+                    ad_plus_eq_v(&gs, &sum, out[i]);
                     //                    sum = plus_vv(&gs, sum, out[i]);
                     //                std::cout<<sum.value<<"\n";
                     out[i].value = 0;
                 }
                 //finish up with the native api.
-                f = times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
+                f = ad_times_dv(&gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(&gs, sum));
 
                 // print function value a derivatives w.r.t a and b.
                 std::cout << " f  = " << f.value << std::endl;
