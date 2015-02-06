@@ -1,9 +1,4 @@
 
-
-/**
- * compute:
- * v[i] = ((a*x[i] + b)-y[i])^2
- */ 
 __kernel void AD(__global struct gradient_structure* gs,
         __global struct entry* gradient_stack,
         __global struct variable* a,
@@ -12,17 +7,18 @@ __kernel void AD(__global struct gradient_structure* gs,
         __global double *y,
         __global struct variable *out, int size) {
 
+
+    //initialize the gradient structure
+    ad_init(gs, gradient_stack);
+
+    //get global id
     int id = get_global_id(0);
-  
-        init(gs, gradient_stack);
 
 
     if (id < size) {
-        //using this variable temp results in less writes to the gradient_structure.    
-        struct variable temp = minus_vd(gs, plus(gs, times_vd(gs, *a, x[id]), *b), y[id]);
-        struct variable v = times(gs, temp, temp); // minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]), minus_vd(gs, plus_vv(gs, times_vd(gs, *a, x[i]), *b), y[i]));
-        out[id] = v;
+        struct variable temp = ad_minus_vd(gs, ad_plus(gs, ad_times_vd(gs, *a, x[id]), *b), y[id]);
+        out[id] = ad_times(gs, temp, temp);
     }
 
-
+  
 }
