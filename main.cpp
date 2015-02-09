@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
         }
 
         //print platform info 
-        std::cout << platforms[1];
+        std::cout << platforms[0];
 
         // Get list of devices on default platform and create context
         cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
@@ -298,7 +298,7 @@ std::cout << global_size << "\n";
 
         //set the buffers
         cl::Buffer gs_d = cl::Buffer(context, CL_MEM_READ_WRITE, sizeof (gradient_structure));
-        cl::Buffer entry_d = cl::Buffer(context, CL_MEM_READ_WRITE, STACK_SIZE * sizeof (entry), entries);
+        cl::Buffer entry_d = cl::Buffer(context, CL_MEM_READ_WRITE, STACK_SIZE * sizeof (entry));
         cl::Buffer a_d = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof (variable));
         cl::Buffer b_d = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof (variable));
         cl::Buffer x_d = cl::Buffer(context, CL_MEM_READ_ONLY, DATA_SIZE * sizeof (double));
