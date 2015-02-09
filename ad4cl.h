@@ -8,7 +8,7 @@
 #ifndef ADCL_H
 #define	ADCL_H
 #include <math.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 #ifndef DEFAULT_ENTRY_SIZE
