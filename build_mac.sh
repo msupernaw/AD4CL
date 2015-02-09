@@ -1,3 +1,3 @@
 #!/bin/sh
 
-clang++ main.cpp -framework OpenCL
+clang++  -O3 main.cpp -framework OpenCL
