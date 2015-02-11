@@ -253,7 +253,7 @@ int main(int argc, char** argv) {
     size_t global_size, local_size;
 
     //initialize the data set
-    int DATA_SIZE = 1000003;
+    int DATA_SIZE = 1000000;
     double* x = new double[DATA_SIZE];
     double* y = new double[DATA_SIZE];
 
