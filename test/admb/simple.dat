@@ -1,0 +1,5 @@
+# number of observations
+     1000003
+# gradient method 0 = admb, 1 = ad4cl on device, 2 = ad4cl on host
+     0      
+
