@@ -41,7 +41,6 @@ void Gradient(std::vector<double>& g, struct ad_gradient_structure& gs) {
         if (w != 0.0) {
             g[id] = 0.0;
             for (int i = 0; i < gs.gradient_stack[j].size; i++) {
-                //std::cout<<gs.gradient_stack[j].coeff[i].id<<"+="<<w<<"*"<<gs.gradient_stack[j].coeff[i].dx<<std::endl;
                 g[gs.gradient_stack[j].coeff[i].id] += w * gs.gradient_stack[j].coeff[i].dx;
             }
         }
@@ -51,9 +50,8 @@ void Gradient(std::vector<double>& g, struct ad_gradient_structure& gs) {
 model_data::model_data(int argc, char * argv[]) : ad_comm(argc, argv) {
     nobs.allocate("nobs");
     method.allocate("method");
-    //    nobs.val =100;
-    YY.allocate(1, nobs); //, "Y");
-    XX.allocate(1, nobs); //, "x");
+    YY.allocate(1, nobs); 
+    XX.allocate(1, nobs); 
     A = 2.0;
     B = 4.0;
     S = 7.0;
@@ -67,8 +65,7 @@ model_data::model_data(int argc, char * argv[]) : ad_comm(argc, argv) {
     err.fill_randn(rng);
     YY += S*err;
 
-    // for log-normal error
-    //Y = elem_prod(Y,exp
+  
 
     Y = new double[nobs.val];
     x = new double[nobs.val];
@@ -80,8 +77,7 @@ model_data::model_data(int argc, char * argv[]) : ad_comm(argc, argv) {
     for (int i = 0; i < nobs; i++) {
 
         x[i] = XX[i + 1];
-        Y[i] = YY[i + 1]; // 1.9232 * x[i] + 4.121432432 + (-2.0 + 4.0 * ((double) rand() / (RAND_MAX)));
-        //        std::cout<<Y[i]<<std::endl;
+        Y[i] = YY[i + 1]; 
     }
 
 
@@ -140,8 +136,6 @@ void model_parameters::initialize_opencl() {
         ss << line << "\n";
     }
     source_code = ss.str();
-    //    std::cout << ss.str() << std::endl;
-    //    exit(0);
 
     std::vector<cl::Platform> platforms;
 
@@ -245,8 +239,7 @@ void model_parameters::initialize_opencl() {
 }
 
 void model_parameters::userfunction(void) {
-    //        std::cout << aa.id << " --- " << bb.id << "\n";
-    //        exit(0);
+    
     f = 0.0;
     aa.value = a.xval();
     bb.value = b.xval();
@@ -256,7 +249,6 @@ void model_parameters::userfunction(void) {
             queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof ( ad_gradient_structure), gs);
             queue.enqueueWriteBuffer(a_d, CL_TRUE, 0, sizeof ( ad_variable), &aa);
             queue.enqueueWriteBuffer(b_d, CL_TRUE, 0, sizeof ( ad_variable), &bb);
-            //            queue.enqueueWriteBuffer(out_d, CL_TRUE, 0, DATA_SIZE * sizeof ( ad_variable), out);
 
 
             cl::Event event;
@@ -292,12 +284,10 @@ void model_parameters::userfunction(void) {
 
             gpu_restore(gs);
 
-            //            exit(0);
-            //        std::cout << gs->current_variable_id << " ids" << std::endl;
+           
             ad_variable sum = {.value = 0.0, .id = gs->current_variable_id++};
             for (int i = 0; i < DATA_SIZE; i++) {
-                //                std::cout<<out[i].value<<"\n";
-                ad_plus_eq_v(gs, &sum, out[i]/*times_vv(&gs,out[i],out[i])*/);
+                ad_plus_eq_v(gs, &sum, out[i]);
                 out[i].value = 0;
             }
 
@@ -308,7 +298,7 @@ void model_parameters::userfunction(void) {
 
             Gradient(gradient, *gs);
 
-            //                    std::cout << g[aa.id] << ", " << g[bb.id] << std::endl;
+         
 
             f.v->xvalue() = ff.value;
             AD_SET_DERIVATIVES2(f, a, gradient[aa.id], b, gradient[bb.id]);
@@ -316,16 +306,11 @@ void model_parameters::userfunction(void) {
         } catch (cl::Error err) {
             std::cout << err.what() << std::endl;
             std::cout << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]);
-            //        exit(0);
         }
 
         gs->stack_current = 0;
         gs->current_variable_id = bb.id + 1;
-        //        gs->counter = 1;
-        //        for (int i = 0; i < STACK_SIZE; i++) {
-        //            gs->gradient_stack[i].size = 0;
-        //            gs->gradient_stack[i].id = 0;
-        //        }
+      
     } else if (gradient_method == AD4CL_HOST) {
 
 #ifdef CL_PROFILING
@@ -341,8 +326,7 @@ void model_parameters::userfunction(void) {
 #endif
         ad_variable sum = {.value = 0.0, .id = gs->current_variable_id++};
         for (int i = 0; i < DATA_SIZE; i++) {
-            //                std::cout<<out[i].value<<"\n";
-            ad_plus_eq_v(gs, &sum, out[i]/*times_vv(&gs,out[i],out[i])*/);
+            ad_plus_eq_v(gs, &sum, out[i]);
             out[i].value = 0;
         }
 
@@ -352,23 +336,13 @@ void model_parameters::userfunction(void) {
 
         Gradient(gradient, *gs);
 
-        //                    std::cout << g[aa.id] << ", " << g[bb.id] << std::endl;
-
         f.v->xvalue() = ff.value;
         AD_SET_DERIVATIVES2(f, a, gradient[aa.id], b, gradient[bb.id]);
         gs->stack_current = 0;
         gs->current_variable_id = bb.id + 1;
-        //
-        //        f = 0.0;
-        //        pred_Y = a * XX + b;
-        //        f = (norm2(pred_Y - YY));
-
-        //        f = nobs / 2. * log(f); // make it a likelihood function so that
-        //         std::cout<<f<<std::endl;
-        //        exit(0);
-        //    // covariance matrix is correct
+       
     } else {
-        //        f = 0.0;
+
 #ifdef CL_PROFILING
         static struct timeval tm1, tm2;
         gettimeofday(&tm1, NULL);
@@ -382,8 +356,7 @@ void model_parameters::userfunction(void) {
         std::cout << t << " ms" << std::endl;
 #endif
         f = (norm2(pred_Y));
-        //
-        f = nobs / 2. * log(f); // ma
+        f = nobs / 2. * log(f); 
 
 
     }
