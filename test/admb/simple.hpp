@@ -7,11 +7,12 @@
 #include "../opencl_ad_1/ad4cl.h"
 
 
-#define STACK_SIZE 10000000
+#define STACK_SIZE 5000000
 
 
 #include <iostream>
 #include <vector>
+
 inline std::ostream& operator<<(std::ostream& out, const cl::Platform& platform) {
     out << "CL_PLATFORM_PROFILE    = " << platform.getInfo<CL_PLATFORM_PROFILE > () << "\n";
     out << "CL_PLATFORM_VERSION    = " << platform.getInfo<CL_PLATFORM_VERSION > () << "\n";
@@ -77,6 +78,7 @@ inline std::ostream& operator<<(std::ostream& out, const cl::Device& device) {
 class model_data : public ad_comm {
     data_int nobs;
     data_int method;
+    data_int ad4cl_stack_size;
     double A;
     double B;
     double S;
@@ -145,20 +147,21 @@ private:
 
     struct ad_variable aa;
     struct ad_variable bb;
+    struct ad_variable sum;
     struct ad_variable* out;
     struct ad_gradient_structure* gs;
     struct ad_entry* gradient_stack;
     size_t global_size, local_size;
     std::vector<double> gradient;
-    
-    enum GradientMethod{
-        ADMB =0,
+
+    enum GradientMethod {
+        ADMB = 0,
         AD4CL_DEVICE,
         AD4CL_HOST
     };
 
     GradientMethod gradient_method;
-    
+
     ivector integer_control_flags;
     dvector double_control_flags;
     param_init_number a;
