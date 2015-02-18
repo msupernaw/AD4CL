@@ -1,0 +1,15 @@
+CPU: Intel(R) Core(TM) i7-3630QM @ 2.40GHz
+GPU: NVidia Geforce gtx 660m
+
+Number of data points: 1000003
+
+
+
+Gradient method     runtime(seconds)      result           max gradient component mag
+ADMB                5.062                 8.8535e+006      5.1772e-005
+AD4CL_Device        2.796                 8.8535e+006      5.1772e-005
+AD4CL_Host          2.505                 8.8535e+006      5.1772e-005
+
+Comments: NVidia Geforce gtx 660m is only a mid grade GPU and results are expected to be much better
+with a better GPU. The mean kernel profile time on the device was 13.7 ms, while the equivalent on
+the CPU was 30.012 ms. Much time seems to be lost from copying data to and from the device.
