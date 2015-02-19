@@ -79,6 +79,9 @@ class model_data : public ad_comm {
     data_int nobs;
     data_int method;
     data_int ad4cl_stack_size;
+    init_adstring  ad4cl_api;
+    init_adstring kernel_code;
+    data_int gpu_index;
     double A;
     double B;
     double S;

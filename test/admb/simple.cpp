@@ -49,6 +49,9 @@ model_data::model_data(int argc, char * argv[]) : ad_comm(argc, argv) {
     nobs.allocate("nobs");
     method.allocate("method");
     ad4cl_stack_size.allocate("ad4cl_stack_size");
+    ad4cl_api.allocate("ad4cl_api");
+    kernel_code.allocate("kernel_code");
+    gpu_index.allocate("gpu_index");
     YY.allocate(1, nobs);
     XX.allocate(1, nobs);
     A = 2.0;
@@ -89,7 +92,6 @@ model_data(argc, argv), function_minimizer(sz) {
     initializationfunction();
     gradient_method = method;
     a.allocate("a");
-    //        a = .0000012;
     b.allocate("b");
     pred_Y.allocate(1, nobs, "pred_Y");
 #ifndef NO_AD_INITIALIZE
@@ -135,7 +137,7 @@ void model_parameters::initialize_opencl() {
     //Read the ad4cl api.
     std::string line;
     std::ifstream in;
-    in.open("../../ad.cl");
+    in.open(ad4cl_api);
 
 
 
@@ -149,7 +151,7 @@ void model_parameters::initialize_opencl() {
     }
 
     std::ifstream kin;
-    kin.open("simple.cl");
+    kin.open(kernel_code);
 
     while (kin.good()) {
         std::getline(kin, line);
@@ -170,7 +172,7 @@ void model_parameters::initialize_opencl() {
         //        std::cout << platforms[1];
 
         // Get list of devices on default platform and create context
-        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[1])(), 0};
+        cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[gpu_index.val])(), 0};
         context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
         devices = context.getInfo<CL_CONTEXT_DEVICES > ();
 

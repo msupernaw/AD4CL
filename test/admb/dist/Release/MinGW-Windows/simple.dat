@@ -4,5 +4,12 @@
      1
 # ad4cl stack size
      5000000
+#path to ad.cl
+     ../../ad.cl
+#path to kernel simple.cl
+     simple.cl
+#gpu index. for host with more than one gpu.(first is 0)
+     1
+
 
 
