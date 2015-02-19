@@ -280,7 +280,7 @@ void model_parameters::userfunction(void) {
                     event.getProfilingInfo<CL_PROFILING_COMMAND_END>();
             double time = 1.e-6 * (end - start);
             cout << "kernel time " << time << " ms, ";
-            ;
+            
 #endif
             queue.enqueueReadBuffer(ad_entry_d, CL_TRUE, 0, this->ad4cl_stack_size.val * sizeof ( ad_entry), (struct ad_entry*) gradient_stack);
 

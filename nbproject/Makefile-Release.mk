@@ -35,7 +35,8 @@ OBJECTDIR=${CND_BUILDDIR}/${CND_CONF}/${CND_PLATFORM}
 
 # Object Files
 OBJECTFILES= \
-	${OBJECTDIR}/main.o
+	${OBJECTDIR}/test/matrix/matrix_mul.o \
+	${OBJECTDIR}/test/matrix/matrixmul.o
 
 
 # C Compiler Flags
@@ -52,20 +53,29 @@ FFLAGS=
 ASFLAGS=
 
 # Link Libraries and Options
-LDLIBSOPTIONS=
+LDLIBSOPTIONS=../ad4cl_with_admb/admb-master/build/dist/lib/libadmb.a ../../../../../NVIDIA/CUDA/CUDAToolkit/lib/x64/OpenCL.lib
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
 	"${MAKE}"  -f nbproject/Makefile-${CND_CONF}.mk ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/ad4cl.exe
 
+${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/ad4cl.exe: ../ad4cl_with_admb/admb-master/build/dist/lib/libadmb.a
+
+${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/ad4cl.exe: ../../../../../NVIDIA/CUDA/CUDAToolkit/lib/x64/OpenCL.lib
+
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/ad4cl.exe: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
 	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/ad4cl ${OBJECTFILES} ${LDLIBSOPTIONS}
 
-${OBJECTDIR}/main.o: main.cpp 
-	${MKDIR} -p ${OBJECTDIR}
+${OBJECTDIR}/test/matrix/matrix_mul.o: test/matrix/matrix_mul.cpp 
+	${MKDIR} -p ${OBJECTDIR}/test/matrix
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
+	$(COMPILE.cc) -O2 -I/C/NVIDIA/CUDA/CUDAToolkit/include -I../ad4cl_with_admb/admb-master/build/dist/include -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/test/matrix/matrix_mul.o test/matrix/matrix_mul.cpp
+
+${OBJECTDIR}/test/matrix/matrixmul.o: test/matrix/matrixmul.cl 
+	${MKDIR} -p ${OBJECTDIR}/test/matrix
+	${RM} "$@.d"
+	$(COMPILE.c) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/test/matrix/matrixmul.o test/matrix/matrixmul.cl
 
 # Subprojects
 .build-subprojects:

@@ -4,12 +4,14 @@
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/make-project/1">
             <name>AD4CL</name>
-            <c-extensions/>
+            <c-extensions>cl</c-extensions>
             <cpp-extensions>cpp</cpp-extensions>
             <header-extensions>h,hpp</header-extensions>
             <sourceEncoding>UTF-8</sourceEncoding>
             <make-dep-projects/>
-            <sourceRootList/>
+            <sourceRootList>
+                <sourceRootElem>C:\Users\Matthew\Documents\NetBeansProjects\AD4CL\test</sourceRootElem>
+            </sourceRootList>
             <confList>
                 <confElem>
                     <name>Debug</name>

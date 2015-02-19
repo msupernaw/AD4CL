@@ -12,7 +12,6 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
-      <itemPath>main.cpp</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
                    displayName="Test Files"
@@ -25,10 +24,16 @@
                    kind="IMPORTANT_FILES_FOLDER">
       <itemPath>Makefile</itemPath>
     </logicalFolder>
+    <itemPath>test/matrix/Makefile</itemPath>
     <itemPath>C:/Users/Matthew/Documents/NetBeansProjects/AD4CL/Variable.hpp</itemPath>
     <itemPath>C:/Users/Matthew/Documents/NetBeansProjects/AD4CL/ad4cl.h</itemPath>
     <itemPath>C:/Users/Matthew/Documents/NetBeansProjects/AD4CL/cl.hpp</itemPath>
+    <itemPath>test/matrix/matrix_mul.cpp</itemPath>
+    <itemPath>test/matrix/matrixmul.cl</itemPath>
   </logicalFolder>
+  <sourceRootList>
+    <Elem>C:\Users\Matthew\Documents\NetBeansProjects\AD4CL\test</Elem>
+  </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
     <conf name="Debug" type="1">
@@ -38,6 +43,19 @@
         <rebuildPropChanged>false</rebuildPropChanged>
       </toolsSet>
       <compileType>
+        <ccTool>
+          <incDir>
+            <pElem>C:/NVIDIA/CUDA/CUDAToolkit/include</pElem>
+            <pElem>../ad4cl_with_admb/admb-master/build/dist/include</pElem>
+          </incDir>
+          <commandLine>-fpermissive</commandLine>
+        </ccTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerLibFileItem>../ad4cl_with_admb/admb-master/build/dist/lib/libadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>../../../../../NVIDIA/CUDA/CUDAToolkit/lib/x64/OpenCL.lib</linkerLibFileItem>
+          </linkerLibItems>
+        </linkerTool>
       </compileType>
       <item path="C:/Users/Matthew/Documents/NetBeansProjects/AD4CL/Variable.hpp"
             ex="false"
@@ -54,7 +72,11 @@
             tool="3"
             flavor2="0">
       </item>
-      <item path="main.cpp" ex="false" tool="1" flavor2="0">
+      <item path="test/matrix/Makefile" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="test/matrix/matrix_mul.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="test/matrix/matrixmul.cl" ex="false" tool="0" flavor2="0">
       </item>
     </conf>
     <conf name="Release" type="1">
@@ -69,6 +91,10 @@
         </cTool>
         <ccTool>
           <developmentMode>5</developmentMode>
+          <incDir>
+            <pElem>C:/NVIDIA/CUDA/CUDAToolkit/include</pElem>
+            <pElem>../ad4cl_with_admb/admb-master/build/dist/include</pElem>
+          </incDir>
         </ccTool>
         <fortranCompilerTool>
           <developmentMode>5</developmentMode>
@@ -76,6 +102,12 @@
         <asmTool>
           <developmentMode>5</developmentMode>
         </asmTool>
+        <linkerTool>
+          <linkerLibItems>
+            <linkerLibFileItem>../ad4cl_with_admb/admb-master/build/dist/lib/libadmb.a</linkerLibFileItem>
+            <linkerLibFileItem>../../../../../NVIDIA/CUDA/CUDAToolkit/lib/x64/OpenCL.lib</linkerLibFileItem>
+          </linkerLibItems>
+        </linkerTool>
       </compileType>
       <item path="C:/Users/Matthew/Documents/NetBeansProjects/AD4CL/Variable.hpp"
             ex="false"
@@ -92,7 +124,11 @@
             tool="3"
             flavor2="0">
       </item>
-      <item path="main.cpp" ex="false" tool="1" flavor2="0">
+      <item path="test/matrix/Makefile" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="test/matrix/matrix_mul.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="test/matrix/matrixmul.cl" ex="false" tool="0" flavor2="0">
       </item>
     </conf>
   </confs>

@@ -71,6 +71,7 @@ extern "C" {
         gs->recording = 1;
         gs->stack_current = 0;
         gs->gradient_stack = malloc(sizeof (ad_entry) * size);
+        return gs;
     }
 
     /**
@@ -85,6 +86,12 @@ extern "C" {
         gs->counter = 1;
     }
 
+    
+    inline void ad_init_var(struct ad_gradient_structure* gs, struct ad_variable* var, double value){
+        var->id = atomic_inc(gs->current_variable_id);
+        var->value = value;
+    }
+    
     /**
      * Adds two variables together. If the gradient structure is recording, 
      * entries will be added, otherwise the result is only computed.
@@ -458,7 +465,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_cos(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_cos(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = log(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -476,7 +483,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_sin(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_sin(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = sin(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -494,7 +501,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_tan(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_tan(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = tan(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -512,7 +519,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_acos(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_acos(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = acos(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -533,7 +540,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_asin(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_asin(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = asin(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -554,7 +561,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_atan(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_atan(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = atan(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -572,7 +579,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_cosh(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_cosh(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = cosh(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -589,7 +596,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_sinh(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_sinh(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = sinh(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -606,7 +613,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_tanh(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_tanh(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = tanh(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -624,7 +631,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_exp(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_exp(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = exp(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -641,7 +648,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_log(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_log(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = log(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -659,7 +666,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_log10(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_log10(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = log10(v.value), .id = 0};
 
         if (gs->recording == 1) {
@@ -677,7 +684,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_pow(struct ad_gradient_structure* gs,
+    inline const struct ad_variable ad_pow(struct ad_gradient_structure* gs,
             struct ad_variable a, struct ad_variable b) {
         struct ad_variable ret = {.value = pow(a.value, b.value), .id = 0};
 
@@ -697,7 +704,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_pow_vd(struct ad_gradient_structure* gs,
+    inline const struct ad_variable ad_pow_vd(struct ad_gradient_structure* gs,
             struct ad_variable a, double b) {
         struct ad_variable ret = {.value = pow(a.value, b), .id = 0};
 
@@ -716,7 +723,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_pow_dv(struct ad_gradient_structure* gs,
+    inline const struct ad_variable ad_pow_dv(struct ad_gradient_structure* gs,
             double a, struct ad_variable b) {
         struct ad_variable ret = {.value = pow(a, b.value), .id = 0};
 
@@ -735,7 +742,7 @@ extern "C" {
         return ret;
     }
 
-    inline const struct ad_variable __attribute__((overloadable)) ad_sqrt(struct ad_gradient_structure* gs, struct ad_variable v) {
+    inline const struct ad_variable ad_sqrt(struct ad_gradient_structure* gs, struct ad_variable v) {
         struct ad_variable ret = {.value = sqrt(v.value), .id = 0};
 
         if (gs->recording == 1) {

@@ -108,6 +108,11 @@ inline void pad_init(int operations, struct ad_gradient_structure* pgs, __global
         pgs->recording = 0;
     }
 }
+   inline void ad_init_var_g(__global struct ad_gradient_structure* gs, struct ad_variable* var, double value){
+        var->id = atomic_inc(&gs->current_ad_variable_id);
+        var->value = value;
+    }
+    
 
 inline void lad_init(int operations, int work_group_size,
         __local struct local_gradient_structure* lgs,
@@ -212,7 +217,7 @@ inline const struct ad_variable ad_plus_dv(__global struct ad_gradient_structure
  * @param a
  * @param b
  */
-inline void ad_plus_eq(__global struct ad_gradient_structure* gs, struct ad_variable* a, struct ad_variable b) {
+inline void ad_plus_eq(__global struct ad_gradient_structure* gs, struct ad_variable* a, const struct ad_variable b) {
     a->value += b.value;
 
     if (gs->recording == 1) {
