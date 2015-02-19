@@ -2,9 +2,9 @@
 #define _SIMPLE_
 
 #define __CL_ENABLE_EXCEPTIONS 
-#include "../opencl_ad_1/cl.hpp"
+#include "../../cl.hpp"
 
-#include "../opencl_ad_1/ad4cl.h"
+#include "../../ad4cl.h"
 
 
 #define STACK_SIZE 5000000

@@ -135,7 +135,7 @@ void model_parameters::initialize_opencl() {
     //Read the ad4cl api.
     std::string line;
     std::ifstream in;
-    in.open("C:\\Users\\Matthew\\Documents\\NetBeansProjects\\adcl\\ad.cl");
+    in.open("../../ad.cl");
 
 
 
@@ -149,7 +149,7 @@ void model_parameters::initialize_opencl() {
     }
 
     std::ifstream kin;
-    kin.open("kernel.cl");
+    kin.open("simple.cl");
 
     while (kin.good()) {
         std::getline(kin, line);
