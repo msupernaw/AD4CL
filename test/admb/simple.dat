@@ -8,8 +8,8 @@
      ../../ad.cl
 #path to kernel simple.cl
      simple.cl
-#gpu index. for host with more than one gpu.(first index is 0)
-     1
+#gpu index. for host with more than one gpu.(first is 0)
+     0
 
 
 
