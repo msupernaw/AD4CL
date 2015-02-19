@@ -9,7 +9,7 @@
 #path to kernel simple.cl
      simple.cl
 #gpu index. for host with more than one gpu.(first is 0)
-     1
+     0
 
 
 
