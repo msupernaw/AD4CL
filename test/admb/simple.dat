@@ -1,14 +1,14 @@
 # number of observations
      1000003
 # gradient method 0 = admb, 1 = ad4cl_device, 2 = ad4cl_host
-     1
+     0
 # ad4cl stack size
      5000000
 #path to ad.cl
      ../../ad.cl
 #path to kernel simple.cl
      simple.cl
-#gpu index. for host with more than one gpu.(first is 0)
+#gpu index. for host with more than one gpu.(first index is 0)
      1
 
 
