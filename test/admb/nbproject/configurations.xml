@@ -24,6 +24,7 @@
                    kind="IMPORTANT_FILES_FOLDER">
       <itemPath>Makefile</itemPath>
     </logicalFolder>
+    <itemPath>Makefile.jim</itemPath>
     <itemPath>run.bat</itemPath>
     <itemPath>simple.cpp</itemPath>
     <itemPath>simple.dat</itemPath>
@@ -52,6 +53,8 @@
           </linkerLibItems>
         </linkerTool>
       </compileType>
+      <item path="Makefile.jim" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="run.bat" ex="false" tool="3" flavor2="0">
       </item>
       <item path="simple.cpp" ex="false" tool="1" flavor2="0">
@@ -93,6 +96,8 @@
           </linkerLibItems>
         </linkerTool>
       </compileType>
+      <item path="Makefile.jim" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="run.bat" ex="false" tool="3" flavor2="0">
       </item>
       <item path="simple.cpp" ex="false" tool="1" flavor2="0">

@@ -279,8 +279,6 @@ void model_parameters::userfunction(void) {
             cl_ulong end =
                     event.getProfilingInfo<CL_PROFILING_COMMAND_END>();
             double time = 1.e-6 * (end - start);
-            double startTime = start * 1.e-6;
-            double endTime = end * 1.e-6;
             cout << "kernel time " << time << " ms, ";
             ;
 #endif
