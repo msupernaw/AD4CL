@@ -8,8 +8,9 @@
 #ifndef ADCL_H
 #define	ADCL_H
 #include <math.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifndef DEFAULT_ENTRY_SIZE
 #define DEFAULT_ENTRY_SIZE 10000000
@@ -57,7 +58,6 @@ extern "C" {
         int stack_current;
         int recording;
         int counter;
-        struct ad_entry* index;
     };
 
     /**
@@ -66,11 +66,11 @@ extern "C" {
      * @return 
      */
     struct ad_gradient_structure* create_gradient_structure(int size) {
-        struct ad_gradient_structure* gs = malloc(sizeof (ad_gradient_structure));
+        struct ad_gradient_structure* gs = ( struct ad_gradient_structure*)malloc(sizeof (ad_gradient_structure));
         gs->current_variable_id = 0;
         gs->recording = 1;
         gs->stack_current = 0;
-        gs->gradient_stack = malloc(sizeof (ad_entry) * size);
+        gs->gradient_stack = (struct ad_entry*)malloc(sizeof (ad_entry) * size);
         return gs;
     }
 
@@ -83,7 +83,7 @@ extern "C" {
     inline void gpu_restore(struct ad_gradient_structure* gs) {
         gs->current_variable_id += gs->counter;
         gs->stack_current += gs->counter;
-        gs->counter = 1;
+        gs->counter = 0;
     }
 
     
@@ -783,7 +783,6 @@ extern "C" {
             //            for (int i = 0; i < size; i++) {
             //                gradient[i] = 0;
             //            }
-
             gradient[gs.gradient_stack[gs.stack_current - 1].id] = 1.0;
 
             for (int j = gs.stack_current - 1; j >= 0; j--) {

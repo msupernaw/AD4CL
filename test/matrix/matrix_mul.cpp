@@ -10,7 +10,7 @@
 
 //#define HOST
 
-#include <cstdlib>
+//#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -20,16 +20,19 @@
 #include "../../cl.hpp"
 
 
-#define widthA 128
-#define heightA 128
+
+#define DSIZE 256
+
+#define widthA DSIZE
+#define heightA DSIZE
 
 #define widthB heightA
-#define heightB 128
+#define heightB DSIZE
 
 #define widthC widthA
 #define heightC heightB
 
-#define GRADIENT_STACK_SIZE 10000000
+#define GRADIENT_STACK_SIZE 35000000
 
 using namespace std;
 
@@ -39,14 +42,15 @@ void MatrixMultHost(struct ad_gradient_structure* gs,
         struct ad_variable* C) {
 
 
-    for (int i = 0; i < widthA; i++) {
+    
         for (int j = 0; j < heightC; j++) {
+            for (int i = 0; i < widthC; i++) {
             struct ad_variable value;
             ad_init_var(gs, &value, 0.0);
             for (int k = 0; k < widthB; k++) {
                 ad_plus_eq_v(gs, &value, ad_times(gs, A[k + j * widthA], B[k * widthB + i]));
             }
-            C[i * heightC + j] = value;
+            C[i + widthC * j] = value;
         }
 
     }
@@ -60,10 +64,10 @@ int main(int argc, char** argv) {
     struct ad_gradient_structure* gs; // = create_gradient_structure(GRADIENT_STACK_SIZE);
     int lastid;
     gs = new ad_gradient_structure();
-    gs->current_variable_id = 1;
+    gs->current_variable_id = 0;
     gs->stack_current = 0;
     gs->recording = 1;
-    gs->counter = 1;
+    gs->counter = 0;
 
     struct ad_entry* gradient_stack = new ad_entry[GRADIENT_STACK_SIZE];
     for (int i = 0; i < GRADIENT_STACK_SIZE; i++) {
@@ -84,9 +88,9 @@ int main(int argc, char** argv) {
     for (int i = 0; i < widthB * heightB; i++) {
         ad_init_var(gs, &B[i], ((double) rand() / (RAND_MAX + 1)));
     }
-    for (int i = 0; i < widthC * heightC; i++) {
-        ad_init_var(gs, &C[i], 0.01);
-    }
+    //    for (int i = 0; i < widthC * heightC; i++) {
+    //        ad_init_var(gs, &C[i], 0.01);
+    //    }
 
     lastid = gs->current_variable_id;
 
@@ -137,6 +141,7 @@ int main(int argc, char** argv) {
         }
 
 
+
         // Get list of devices on default platform and create context
         cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[1])(), 0};
         context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
@@ -144,11 +149,11 @@ int main(int argc, char** argv) {
 
 
 
-
         //set the program source
         source = cl::Program::Sources(1, std::make_pair(source_code.c_str(), source_code.size()));
         program_ = cl::Program(context, source, &error);
 
+        std::stringstream args;
         //build the program
         program_.build(devices);
 
@@ -185,7 +190,7 @@ int main(int argc, char** argv) {
     kernel.setArg(4, c_d);
     kernel.setArg(5, widthA);
     kernel.setArg(6, widthB);
-    for (int iter = 0; iter < 37; iter++) {
+    for (int iter = 0; iter < 1; iter++) {
 #ifdef HOST
 #ifdef CL_PROFILING
         static struct timeval tm1, tm2;
@@ -202,9 +207,9 @@ int main(int argc, char** argv) {
         //
         cl::Event event;
         try {
-            queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof ( ad_gradient_structure), gs);
-            queue.enqueueWriteBuffer(a_d, CL_TRUE, 0, (widthA * heightA) * sizeof ( ad_variable), A);
-            queue.enqueueWriteBuffer(b_d, CL_TRUE, 0, (widthB * heightB) * sizeof ( ad_variable), B);
+            queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof ( struct ad_gradient_structure), gs);
+            queue.enqueueWriteBuffer(a_d, CL_TRUE, 0, (widthA * heightA) * sizeof ( struct ad_variable), A);
+            queue.enqueueWriteBuffer(b_d, CL_TRUE, 0, (widthB * heightB) * sizeof (struct ad_variable), B);
 
 
 
@@ -230,18 +235,44 @@ int main(int argc, char** argv) {
 
 #endif
 
-            queue.enqueueReadBuffer(c_d, CL_TRUE, 0, (widthC * heightC) * sizeof ( ad_variable), C);
+            queue.enqueueReadBuffer(gs_d, CL_TRUE, 0, sizeof ( struct ad_gradient_structure), (struct ad_gradient_structure*) gs);
+//            queue.enqueueReadBuffer(ad_entry_d, CL_TRUE, 0, sizeof ( struct ad_entry)*GRADIENT_STACK_SIZE, (struct ad_entry*) gradient_stack);
+            queue.enqueueReadBuffer(c_d, CL_TRUE, 0, (widthC * heightC) * sizeof (struct ad_variable), (struct ad_variable*) C);
 
+            gs->gradient_stack = gradient_stack;
+            gpu_restore(gs);
 
+            //           
 
         } catch (cl::Error err) {
             std::cout << error << err.what() << event.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>();
         }
 
 #endif
-        
+
+        struct ad_variable sum;
+        ad_init_var(gs, &sum, 0.0);
+        for (int i = 0; i < heightC; i++) {
+            for (int j = 0; j < widthC; j++) {
+                ad_plus_eq_v(gs, &sum, C[i * widthC + j]);
+                std::cout << C[i * widthC + j].value << " " << std::flush;
+            }
+            std::cout << std::endl;
+        }
+//
+//
+//
+//        int gsize = 0;
+//        double* gradient = compute_gradient(*gs, gsize);
+//        std::cout << "gradient:\n";
+//        for (int i = 0; i < gsize; i++) {
+//            std::cout << gradient[i] << "\n";
+//        }
+
+        std::cout << gs->stack_current << std::endl;
         gs->stack_current = 0;
         gs->current_variable_id = lastid + 1;
+
     }
 
     delete[] A;

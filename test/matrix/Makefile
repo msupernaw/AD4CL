@@ -1,10 +1,10 @@
 EXECUTABLE=matrix_mul
 
-INCLUDES= -I/C/NVIDIA/CUDA/CUDAToolkit/include
+INCLUDES= -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\include"
 
-LDFLAGS= -L/C/NVIDIA/CUDA/CUDAToolkit/lib/Win32 
+LDFLAGS= -L"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\lib\Win32"
 
-LIBS =  -lOpenCL
+LIBS = -lOpenCL
 CC=mingw32-g++
 
 CFLAGS=-O3 -fpermissive -Wall 
@@ -15,7 +15,7 @@ OBJECTS = $(SOURCES:.cpp=.o)
 all: $(SOURCES) $(EXECUTABLE)
     
 $(EXECUTABLE): 
-	$(CC) $(CFLAGS) $(LDFLAGS)  $(INCLUDES) $(SOURCES) $< -o $@  $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS)  $(INCLUDES) $(SOURCES) $< -o $@  $(LIBS) -static
 
 clean:
 	rm matrix_mul.exe

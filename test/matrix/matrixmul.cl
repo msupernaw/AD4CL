@@ -10,6 +10,7 @@ __kernel void matrixMult(__global struct ad_gradient_structure* gs,
         int widthA,
         int widthB) {
 
+   
     //initialize the global gradient structure
     ad_init(gs, gradient_stack);
 
