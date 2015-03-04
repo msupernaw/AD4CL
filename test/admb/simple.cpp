@@ -1,4 +1,5 @@
 
+
 #include <admodel.h>
 #include <cmath>
 #define CL_PROFILING
@@ -113,10 +114,10 @@ void model_parameters::initialize_opencl() {
 
 
     gs = new ad_gradient_structure();
-    gs->current_variable_id = 1;
+    gs->current_variable_id = 0;
     gs->stack_current = 0;
     gs->recording = 1;
-    gs->counter = 1;
+    gs->counter = 0;
 
     this->gradient_stack = new ad_entry[this->ad4cl_stack_size.val];
     for (int i = 0; i < this->ad4cl_stack_size.val; i++) {
@@ -206,40 +207,63 @@ void model_parameters::initialize_opencl() {
         kernel = cl::Kernel(program_, "AD");
 
         //std::cout<<"here"<<std::endl;
+
+
+        gs_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof ( struct ad_gradient_structure), gs);
+        ad_entry_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, this->ad4cl_stack_size.val * sizeof (struct ad_entry), gradient_stack);
+        a_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof ( ad_variable), &aa);
+        b_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof ( ad_variable), &bb);
+        x_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, DATA_SIZE * sizeof (double), x);
+        y_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, DATA_SIZE * sizeof (double), Y);
+        out_d = cl::Buffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, DATA_SIZE * sizeof (struct ad_variable), out);
+
+#ifdef DO_ALL_ON_GPU
+        f_h = 0.0;
+        da_h = 0.0;
+        db_h = 0.0;
+        counter = DATA_SIZE;
+        gradient_buffer_h = new double[GRADIENT_BUFFER_SIZE];
+        f_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof (double), &f_h);
+        da_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof (double), &da_h);
+        db_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof (double), &db_h);
+        gradient_buffer_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, GRADIENT_BUFFER_SIZE * sizeof (double), gradient_buffer_h);
+        counter_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof (int), &counter);
+#endif
+
+
+        // Number of work items in each local work group
+        local_size = 64; //devices[0].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE > ();
+
+        // Number of total work items - localSize must be devisor
+        global_size = std::ceil(DATA_SIZE / (double) local_size + 1) * local_size;
+
+
+
+        //    queue.enqueueWriteBuffer(x_d, CL_TRUE, 0, sizeof (double)*DATA_SIZE, x);
+        //    queue.enqueueWriteBuffer(y_d, CL_TRUE, 0, sizeof (double)*DATA_SIZE, Y);
+
+        kernel.setArg(0, gs_d);
+        kernel.setArg(1, ad_entry_d);
+        kernel.setArg(2, a_d);
+        kernel.setArg(3, b_d);
+        kernel.setArg(4, x_d);
+        kernel.setArg(5, y_d);
+        kernel.setArg(6, out_d);
+        kernel.setArg(7, DATA_SIZE);
+
+#ifdef DO_ALL_ON_GPU
+
+        kernel.setArg(8, gradient_buffer_d);
+        kernel.setArg(9, da_d);
+        kernel.setArg(10, db_d);
+        kernel.setArg(11, f_d);
+        kernel.setArg(12, counter_d);
+
+#endif
+
     } catch (cl::Error err) {
         std::cout << err.what() << "---> " << error << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]);
     }
-
-
-    gs_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof ( struct ad_gradient_structure), gs);
-    ad_entry_d = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, this->ad4cl_stack_size.val * sizeof (struct ad_entry), gradient_stack);
-    a_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof ( ad_variable), &aa);
-    b_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof ( ad_variable), &bb);
-    x_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, DATA_SIZE * sizeof (double), x);
-    y_d = cl::Buffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, DATA_SIZE * sizeof (double), Y);
-    out_d = cl::Buffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, DATA_SIZE * sizeof (struct ad_variable), out);
-
-
-    // Number of work items in each local work group
-    local_size = 64; //devices[0].getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE > ();
-
-    // Number of total work items - localSize must be devisor
-    global_size = std::ceil(DATA_SIZE / (double) local_size + 1) * local_size;
-
-
-
-    //    queue.enqueueWriteBuffer(x_d, CL_TRUE, 0, sizeof (double)*DATA_SIZE, x);
-    //    queue.enqueueWriteBuffer(y_d, CL_TRUE, 0, sizeof (double)*DATA_SIZE, Y);
-
-    kernel.setArg(0, gs_d);
-    kernel.setArg(1, ad_entry_d);
-    kernel.setArg(2, a_d);
-    kernel.setArg(3, b_d);
-    kernel.setArg(4, x_d);
-    kernel.setArg(5, y_d);
-    kernel.setArg(6, out_d);
-    kernel.setArg(7, DATA_SIZE);
-
 
 }
 
@@ -256,11 +280,13 @@ void model_parameters::userfunction(void) {
 
     if (gradient_method == AD4CL_DEVICE) {
         try {
+            gs->counter = 0;
             queue.enqueueWriteBuffer(gs_d, CL_TRUE, 0, sizeof ( ad_gradient_structure), gs);
             queue.enqueueWriteBuffer(a_d, CL_TRUE, 0, sizeof ( ad_variable), &aa);
             queue.enqueueWriteBuffer(b_d, CL_TRUE, 0, sizeof ( ad_variable), &bb);
-
-
+#ifdef DO_ALL_ON_GPU
+            queue.enqueueWriteBuffer(counter_d, CL_TRUE, 0, sizeof ( int), &counter);
+#endif
             cl::Event event;
             queue.enqueueNDRangeKernel(
                     kernel,
@@ -280,20 +306,54 @@ void model_parameters::userfunction(void) {
                     event.getProfilingInfo<CL_PROFILING_COMMAND_END>();
             double time = 1.e-6 * (end - start);
             cout << "kernel time " << time << " ms, ";
-            
+
 #endif
+
+            queue.enqueueReadBuffer(gs_d, CL_TRUE, 0, sizeof ( ad_gradient_structure), gs);
+
+#ifndef DO_ALL_ON_GPU
             queue.enqueueReadBuffer(ad_entry_d, CL_TRUE, 0, this->ad4cl_stack_size.val * sizeof ( ad_entry), (struct ad_entry*) gradient_stack);
 
             queue.enqueueReadBuffer(out_d, CL_TRUE, 0, DATA_SIZE * sizeof ( ad_variable), (struct ad_variable*) out);
 
-            queue.enqueueReadBuffer(gs_d, CL_TRUE, 0, sizeof ( ad_gradient_structure), gs);
+            gs->gradient_stack = gradient_stack;
+
+#endif
+
+
 
             //         exit(0);
-            gs->gradient_stack = gradient_stack;
+
 
             gpu_restore(gs);
 
+#ifdef DO_ALL_ON_GPU
+            try {
+                queue.enqueueReadBuffer(f_d, CL_TRUE, 0, sizeof ( double), &f_h);
+                queue.enqueueReadBuffer(da_d, CL_TRUE, 0, sizeof ( double), &da_h);
+                queue.enqueueReadBuffer(db_d, CL_TRUE, 0, sizeof ( double), &db_h);
+            } catch (cl::Error err) {
+                std::cout << __LINE__ << " " << err.what() << std::endl;
+                std::cout << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]);
+            }
 
+            //            ad_variable sum = {.value = 0.0, .id = gs->current_variable_id++};
+            //            for (int i = 0; i < DATA_SIZE; i++) {
+            //                ad_plus_eq_v(gs, &sum, out[i]);
+            //                out[i].value = 0;
+            //            }
+            //
+            //
+            //            //finish up with the native api.
+            //            struct ad_variable ff = ad_times_dv(gs, static_cast<double> (DATA_SIZE) / 2.0, ad_log(gs, sum));
+            //
+
+
+            //set admb adjoint code
+            f.v->xvalue() = f_h;
+            std::cout << f_h;
+            AD_SET_DERIVATIVES2(f, a, da_h, b, db_h);
+#else
             ad_variable sum = {.value = 0.0, .id = gs->current_variable_id++};
             for (int i = 0; i < DATA_SIZE; i++) {
                 ad_plus_eq_v(gs, &sum, out[i]);
@@ -308,18 +368,19 @@ void model_parameters::userfunction(void) {
             //compute gradient
             Gradient(gradient, *gs);
 
-
+            std::cout << "grad size = " << gradient.size() << "\n";
             //set admb adjoint code
             f.v->xvalue() = ff.value;
             AD_SET_DERIVATIVES2(f, a, gradient[aa.id], b, gradient[bb.id]);
-
+#endif
         } catch (cl::Error err) {
-            std::cout << err.what() << std::endl;
+            std::cout << __LINE__ << " " << err.what() << std::endl;
             std::cout << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG > (devices[0]);
         }
 
         //reset the ad4cl gradient structure
         gs->stack_current = 0;
+        gs->counter = 0;
         gs->current_variable_id = bb.id + 1;
 
     } else if (gradient_method == AD4CL_HOST) {
@@ -358,18 +419,18 @@ void model_parameters::userfunction(void) {
 
     } else {
 
-//#ifdef CL_PROFILING
-//        static struct timeval tm1, tm2;
-//        gettimeofday(&tm1, NULL);
-//#endif
+        //#ifdef CL_PROFILING
+        //        static struct timeval tm1, tm2;
+        //        gettimeofday(&tm1, NULL);
+        //#endif
         pred_Y = (a * XX + b) - YY;
 
 
-//#ifdef CL_PROFILING
-//        gettimeofday(&tm2, NULL);
-//        double t = 1000.00 * (double) (tm2.tv_sec - tm1.tv_sec) + (double) (tm2.tv_usec - tm1.tv_usec) / 1000.000;
-//          cout << "kernel equivalent time " << time << " ms, ";
-//#endif
+        //#ifdef CL_PROFILING
+        //        gettimeofday(&tm2, NULL);
+        //        double t = 1000.00 * (double) (tm2.tv_sec - tm1.tv_sec) + (double) (tm2.tv_usec - tm1.tv_usec) / 1000.000;
+        //          cout << "kernel equivalent time " << time << " ms, ";
+        //#endif
         f = (norm2(pred_Y));
         f = nobs / 2. * log(f);
 

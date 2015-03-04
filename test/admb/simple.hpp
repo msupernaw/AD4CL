@@ -1,13 +1,19 @@
 #if !defined(_SIMPLE_)
 #define _SIMPLE_
 
+//#define DO_ALL_ON_GPU
+
+#ifdef DO_ALL_ON_GPU
+#define GRADIENT_BUFFER_SIZE  5000000
+#endif
+
 #define __CL_ENABLE_EXCEPTIONS 
 #include "../../cl.hpp"
 
 #include "../../ad4cl.h"
 
 
-#define STACK_SIZE 5000000
+#define STACK_SIZE 50000
 
 
 #include <iostream>
@@ -79,7 +85,7 @@ class model_data : public ad_comm {
     data_int nobs;
     data_int method;
     data_int ad4cl_stack_size;
-    init_adstring  ad4cl_api;
+    init_adstring ad4cl_api;
     init_adstring kernel_code;
     data_int gpu_index;
     double A;
@@ -145,7 +151,20 @@ private:
     cl::Buffer x_d;
     cl::Buffer y_d;
     cl::Buffer out_d;
-
+    
+#ifdef DO_ALL_ON_GPU
+    double f_h;
+    double da_h;
+    double db_h;
+    double* gradient_buffer_h;
+    int counter;
+    cl::Buffer da_d;
+    cl::Buffer db_d;
+    cl::Buffer f_d;
+    cl::Buffer gradient_buffer_d;
+    cl::Buffer counter_d;
+#endif
+    
     int DATA_SIZE;
 
     struct ad_variable aa;

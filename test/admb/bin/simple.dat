@@ -1,5 +1,5 @@
 # number of observations
-     1000003
+     100003
 # gradient method 0 = admb, 1 = ad4cl_device, 2 = ad4cl_host
      1
 # ad4cl stack size

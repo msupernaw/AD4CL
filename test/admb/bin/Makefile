@@ -1,13 +1,13 @@
 EXECUTABLE=simple
 
-INCLUDES=-I/C/Users/Matthew/Documents/NetBeansProjects/ad4cl_with_admb/admb-master/build/dist/include   -I/C/NVIDIA/CUDA/CUDAToolkit/include
+INCLUDES=-I/C/admb/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\include"
 
-LDFLAGS= -L/C/Users/Matthew/Documents/NetBeansProjects/ad4cl_with_admb/admb-master/build/dist/lib -L/C/NVIDIA/CUDA/CUDAToolkit/lib/Win32 
+LDFLAGS= -L/C/admb/lib -L"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\lib\Win32"
 
 LIBS = -ladmb -lOpenCL
 CC=mingw32-g++
 
-CFLAGS=-O3 -fpermissive -Wall 
+CFLAGS=-O3 -fpermissive -Wall -static
 
 SOURCES = ../simple.cpp
 OBJECTS = $(SOURCES:.cpp=.o)

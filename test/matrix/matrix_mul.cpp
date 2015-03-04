@@ -8,7 +8,7 @@
 
 #define CL_PROFILING
 
-//#define HOST
+#define HOST
 
 //#include <cstdlib>
 #include <iostream>
@@ -21,7 +21,7 @@
 
 
 
-#define DSIZE 256
+#define DSIZE (256)
 
 #define widthA DSIZE
 #define heightA DSIZE
@@ -32,7 +32,7 @@
 #define widthC widthA
 #define heightC heightB
 
-#define GRADIENT_STACK_SIZE 35000000
+#define GRADIENT_STACK_SIZE 40000000
 
 using namespace std;
 
@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
     kernel.setArg(4, c_d);
     kernel.setArg(5, widthA);
     kernel.setArg(6, widthB);
-    for (int iter = 0; iter < 1; iter++) {
+    for (int iter = 0; iter < 100; iter++) {
 #ifdef HOST
 #ifdef CL_PROFILING
         static struct timeval tm1, tm2;
@@ -255,9 +255,9 @@ int main(int argc, char** argv) {
         for (int i = 0; i < heightC; i++) {
             for (int j = 0; j < widthC; j++) {
                 ad_plus_eq_v(gs, &sum, C[i * widthC + j]);
-                std::cout << C[i * widthC + j].value << " " << std::flush;
+//                std::cout << C[i * widthC + j].value << " " << std::flush;
             }
-            std::cout << std::endl;
+//            std::cout << std::endl;
         }
 //
 //

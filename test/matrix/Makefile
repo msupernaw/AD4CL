@@ -7,7 +7,7 @@ LDFLAGS= -L"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v6.5\lib\Win32"
 LIBS = -lOpenCL
 CC=mingw32-g++
 
-CFLAGS=-O3 -fpermissive -Wall 
+CFLAGS=-O3 -fpermissive -Wall -static
 
 SOURCES = matrix_mul.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
